@@ -4,10 +4,12 @@ from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
 from flasgger import Swagger
+from flask_sock import Sock
 
 db = SQLAlchemy()
 migrate = Migrate()
 jwt = JWTManager()
+sock = Sock()
 
 
 def create_app():
@@ -54,6 +56,7 @@ def create_app():
     db.init_app(app) #Connect SQLAlchemy to Flask app
     migrate.init_app(app, db) #Connect migration system
     jwt.init_app(app) #Connect JWT system to Flask
+    sock.init_app(app) #Connect WebSocket support to Flask
 
     @app.route("/") 
     def home():
