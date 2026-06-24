@@ -12,23 +12,48 @@ hardware_metrics_bp = Blueprint(
     url_prefix="/hardware-metrics"
 )
 
-
 @hardware_metrics_bp.route("", methods=["POST"])
 @jwt_required()
 def create_metric():
     """
-Create hardware metrics snapshot.
----
-tags:
-  - Hardware Metrics
-security:
-  - Bearer: []
-consumes:
-  - application/json
-responses:
-  201:
-    description: Hardware metrics saved
-"""
+    Create hardware metrics snapshot.
+    ---
+    tags:
+      - Hardware Metrics
+    security:
+      - Bearer: []
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - cpu_usage
+            - ram_used_mb
+            - ram_total_mb
+          properties:
+            cpu_usage:
+              type: number
+              example: 42.5
+            ram_used_mb:
+              type: integer
+              example: 4096
+            ram_total_mb:
+              type: integer
+              example: 8192
+            battery_level:
+              type: number
+              example: 76
+    responses:
+      201:
+        description: Hardware metrics saved
+      400:
+        description: Invalid data
+    """
+
     current_user_id = get_jwt_identity()
 
     data = request.get_json()

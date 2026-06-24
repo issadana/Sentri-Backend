@@ -25,6 +25,39 @@ def create_firewall_log():
       - Bearer: []
     consumes:
       - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - action_taken
+          properties:
+            src_ip:
+              type: string
+              example: "192.168.1.10"
+            dst_ip:
+              type: string
+              example: "8.8.8.8"
+            src_port:
+              type: integer
+              example: 443
+            dst_port:
+              type: integer
+              example: 80
+            protocol:
+              type: string
+              example: "TCP"
+            packet_size:
+              type: number
+              example: 512
+            duration:
+              type: number
+              example: 2.5
+            action_taken:
+              type: string
+              example: "blocked"
     responses:
       201:
         description: Firewall log created
@@ -122,78 +155,17 @@ def get_firewall_logs():
       - Firewall Logs
     security:
       - Bearer: []
-    parameters:
-      - in: query
-        name: action_taken
-        type: string
-      - in: query
-        name: top_threat_type
-        type: string
-      - in: query
-        name: service_name
-        type: string
-      - in: query
-        name: app_name
-        type: string
-      - in: query
-        name: from_date
-        type: string
-      - in: query
-        name: to_date
-        type: string
-      - in: query
-        name: limit
-        type: integer
-      - in: query
-        name: offset
-        type: integer
     responses:
       200:
         description: List of firewall logs
+      401:
+        description: Unauthorized
     """
     current_user_id = get_jwt_identity()
 
     query = FirewallLog.query.filter_by(
         user_id=current_user_id
     )
-
-    action_taken = request.args.get("action_taken")
-    top_threat_type = request.args.get("top_threat_type")
-    service_name = request.args.get("service_name")
-    app_name = request.args.get("app_name")
-    from_date = request.args.get("from_date")
-    to_date = request.args.get("to_date")
-
-    if action_taken:
-        query = query.filter_by(action_taken=action_taken)
-
-    if top_threat_type:
-        query = query.filter_by(top_threat_type=top_threat_type)
-
-    if service_name:
-        query = query.filter_by(service_name=service_name)
-
-    if app_name:
-        query = query.filter_by(app_name=app_name)
-
-    if from_date:
-        query = query.filter(
-            FirewallLog.timestamp >= datetime.fromisoformat(from_date)
-        )
-
-    if to_date:
-        query = query.filter(
-            FirewallLog.timestamp <= datetime.fromisoformat(to_date)
-        )
-
-    limit = request.args.get("limit", type=int)
-    offset = request.args.get("offset", type=int)
-
-    if offset:
-        query = query.offset(offset)
-
-    if limit:
-        query = query.limit(limit)
 
     logs = query.order_by(
         FirewallLog.timestamp.desc()
