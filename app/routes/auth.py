@@ -100,6 +100,18 @@ def register():
     access_token = create_access_token(identity=str(new_user.id))
     refresh_token = create_refresh_token(identity=str(new_user.id))
 
+    from flask_jwt_extended import decode_token
+    decoded_refresh = decode_token(refresh_token)
+    jti = decoded_refresh["jti"]
+
+    saved_refresh_token = RefreshToken(
+    jti=jti,
+    user_id=new_user.id
+    )
+
+    db.session.add(saved_refresh_token)
+    db.session.commit()
+
     return jsonify({
         "message": "User registered successfully",
         "access_token": access_token,
