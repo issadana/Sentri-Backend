@@ -197,9 +197,9 @@ server {
 
 # HTTPS: terminate TLS and proxy to gunicorn (WebSocket-aware).
 server {
-    listen 443 ssl;
-    listen [::]:443 ssl;
-    http2 on;
+    # http2 on the listen line (not "http2 on;") so this works on nginx < 1.25.1 too.
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
     server_name ${DOMAIN};
 
     ssl_certificate     ${LIVE_DIR}/fullchain.pem;
