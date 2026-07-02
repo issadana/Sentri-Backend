@@ -35,7 +35,6 @@ NGINX_DEFAULT="/etc/nginx/sites-enabled/default"
 WS_MAP_CONF="/etc/nginx/conf.d/ws-upgrade.conf"
 LIVE_DIR="/etc/letsencrypt/live/${DOMAIN}"
 RENEW_HOOK="/etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh"
-SKIP_DNS_CHECK="${SKIP_DNS_CHECK:-0}"
 
 # ─────────────────────────── Helpers ──────────────────────────────────────────
 if [[ -t 1 ]]; then
@@ -73,42 +72,7 @@ else
     die "Nothing is answering on 127.0.0.1:${APP_PORT}. Start the stack first (e.g. 'make up') and re-run."
 fi
 
-# 0b. DNS must resolve the domain to THIS server, or the HTTP-01 challenge fails.
-if [[ "${SKIP_DNS_CHECK}" == "1" ]]; then
-    warn "DNS check skipped (SKIP_DNS_CHECK=1)."
-else
-    log "Checking DNS for ${DOMAIN} ..."
-    command -v dig >/dev/null || run apt-get install -y dnsutils
-
-    # Resolve the domain's IPv4 (A) and IPv6 (AAAA) records.
-    domain_v4="$(dig +short "${DOMAIN}" A    | grep -E '^[0-9.]+$'        | tail -n1)"
-    domain_v6="$(dig +short "${DOMAIN}" AAAA | grep -E '^[0-9a-fA-F:]+$'  | tail -n1)"
-
-    # Discover this server's public IPv4 and IPv6, forcing each family so we
-    # never compare an A record against an IPv6 (or vice versa).
-    server_v4="$(curl -4 -fsS --max-time 5 https://ifconfig.me 2>/dev/null || true)"
-    server_v6="$(curl -6 -fsS --max-time 5 https://ifconfig.me 2>/dev/null || true)"
-
-    if [[ -z "${domain_v4}" && -z "${domain_v6}" ]]; then
-        die "${DOMAIN} has no A/AAAA record. Create a DNS record pointing to this server first."
-    fi
-
-    dns_match=0
-    if [[ -n "${domain_v4}" && -n "${server_v4}" && "${domain_v4}" == "${server_v4}" ]]; then
-        ok "DNS ok (IPv4): ${DOMAIN} -> ${domain_v4} matches this server."
-        dns_match=1
-    fi
-    if [[ -n "${domain_v6}" && -n "${server_v6}" && "${domain_v6}" == "${server_v6}" ]]; then
-        ok "DNS ok (IPv6): ${DOMAIN} -> ${domain_v6} matches this server."
-        dns_match=1
-    fi
-
-    if [[ "${dns_match}" -ne 1 ]]; then
-        die "DNS does not point to this server. Domain: ${domain_v4:-no IPv4} / ${domain_v6:-no IPv6}. Server: ${server_v4:-no IPv4} / ${server_v6:-no IPv6}. Point an A and/or AAAA record here (or SKIP_DNS_CHECK=1 to ignore)."
-    fi
-fi
-
-# 0c. Ports 80/443 must be free for nginx (or already held by nginx).
+# 0b. Ports 80/443 must be free for nginx (or already held by nginx).
 log "Checking ports 80/443 ..."
 command -v ss >/dev/null || run apt-get install -y iproute2
 for port in 80 443; do
