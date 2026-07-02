@@ -1,4 +1,5 @@
 from datetime import datetime
+from sqlalchemy.dialects.postgresql import JSONB
 from app import db
 
 
@@ -174,7 +175,10 @@ class HardwareMetric(db.Model):
 class FirewallLog(db.Model):
     __tablename__ = "firewall_logs"
 
-    id = db.Column(db.Integer, primary_key=True)
+    # Columns map 1:1 to the firewall-log WebSocket wire contract (see
+    # docs/DATABASE_SCHEMA.md and the Flutter client's TrafficBloc._toLogJson),
+    # plus the server-owned id / user_id / received_at fields.
+    id = db.Column(db.BigInteger, primary_key=True)
 
     user_id = db.Column(
         db.Integer,
@@ -182,49 +186,34 @@ class FirewallLog(db.Model):
         nullable=False
     )
 
-    timestamp = db.Column(
-        db.DateTime,
-        default=datetime.utcnow
-    )
-
     src_ip = db.Column(db.String(45))
-    dst_ip = db.Column(db.String(45))
-
     src_port = db.Column(db.Integer)
     dst_port = db.Column(db.Integer)
 
-    protocol = db.Column(db.Integer)
+    protocol = db.Column(db.SmallInteger)          # 0/1/6/17
+    size_bytes = db.Column(db.Integer)
 
-    packet_size = db.Column(db.Float, default=0)
-    duration = db.Column(db.Float, default=0)
+    selected_model = db.Column(db.String(100))
+    selected_score = db.Column(db.Float)           # [0, 1]
+    all_model_scores = db.Column(JSONB)            # {"BF_v1": 0.92, ...}
 
-    iat_mean = db.Column(db.Float, default=0)
-    iat_std = db.Column(db.Float, default=0)
-
-    fwd_pkts = db.Column(db.Float, default=0)
-    bwd_pkts = db.Column(db.Float, default=0)
-
-    fwd_max = db.Column(db.Float, default=0)
-    fwd_rate = db.Column(db.Float, default=0)
-    fwd_mean = db.Column(db.Float, default=0)
-    idle_mean = db.Column(db.Float, default=0)
-
-    pkt_size_avg = db.Column(db.Float, default=0)
-
-    prob_brute = db.Column(db.Float, default=0)
-    prob_dos = db.Column(db.Float, default=0)
-    prob_adv_dos = db.Column(db.Float, default=0)
-    prob_loic = db.Column(db.Float, default=0)
-    prob_hoic = db.Column(db.Float, default=0)
-
-    top_threat_type = db.Column(db.String(20))
-    max_attack_prob = db.Column(db.Float, default=0)
-
-    action_taken = db.Column(db.String(15), nullable=False)
-
-    all_model_scores = db.Column(db.Text)
+    action = db.Column(db.String(10), nullable=False)   # blocked|warned|allowed
+    threat_type = db.Column(db.String(50))
 
     service_name = db.Column(db.String(100))
     app_name = db.Column(db.String(100))
     app_package = db.Column(db.String(200))
-    is_system = db.Column(db.Boolean, default=False)
+    is_system = db.Column(db.Boolean, nullable=False, default=False)
+
+    # Device clock (taken from the payload) vs. server-side receipt time.
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False)
+    received_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=False,
+        default=datetime.utcnow
+    )
+
+    __table_args__ = (
+        db.Index("ix_fwlogs_user_created", "user_id", created_at.desc()),
+        db.Index("ix_fwlogs_user_action", "user_id", "action"),
+    )

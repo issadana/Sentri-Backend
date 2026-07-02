@@ -12,7 +12,7 @@ import os
 # this still works (nginx proxies to it; the firewall blocks the port publicly).
 bind = "0.0.0.0:" + os.getenv("PORT", "8080")
 
-# gevent is required for the /firewall-logs/ws WebSocket endpoint to work.
+# gevent is required for the /ws/logs WebSocket endpoint to work.
 worker_class = "gevent"
 
 # Each connection lives on one worker (no cross-worker shared state in the WS
