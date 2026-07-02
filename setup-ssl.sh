@@ -79,14 +79,32 @@ if [[ "${SKIP_DNS_CHECK}" == "1" ]]; then
 else
     log "Checking DNS for ${DOMAIN} ..."
     command -v dig >/dev/null || run apt-get install -y dnsutils
-    server_ip="$(curl -fsS --max-time 5 https://ifconfig.me || curl -fsS --max-time 5 https://api.ipify.org)"
-    domain_ip="$(dig +short "${DOMAIN}" A | grep -E '^[0-9.]+$' | tail -n1)"
-    [[ -n "${server_ip}" ]] || die "Could not determine this server's public IP."
-    [[ -n "${domain_ip}" ]] || die "${DOMAIN} has no A record. Create a DNS A record pointing to ${server_ip} first."
-    if [[ "${server_ip}" == "${domain_ip}" ]]; then
-        ok "DNS ok: ${DOMAIN} -> ${domain_ip} (matches this server)."
-    else
-        die "DNS mismatch: ${DOMAIN} resolves to ${domain_ip}, but this server is ${server_ip}. Point the A record here (or SKIP_DNS_CHECK=1 to ignore)."
+
+    # Resolve the domain's IPv4 (A) and IPv6 (AAAA) records.
+    domain_v4="$(dig +short "${DOMAIN}" A    | grep -E '^[0-9.]+$'        | tail -n1)"
+    domain_v6="$(dig +short "${DOMAIN}" AAAA | grep -E '^[0-9a-fA-F:]+$'  | tail -n1)"
+
+    # Discover this server's public IPv4 and IPv6, forcing each family so we
+    # never compare an A record against an IPv6 (or vice versa).
+    server_v4="$(curl -4 -fsS --max-time 5 https://ifconfig.me 2>/dev/null || true)"
+    server_v6="$(curl -6 -fsS --max-time 5 https://ifconfig.me 2>/dev/null || true)"
+
+    if [[ -z "${domain_v4}" && -z "${domain_v6}" ]]; then
+        die "${DOMAIN} has no A/AAAA record. Create a DNS record pointing to this server first."
+    fi
+
+    dns_match=0
+    if [[ -n "${domain_v4}" && -n "${server_v4}" && "${domain_v4}" == "${server_v4}" ]]; then
+        ok "DNS ok (IPv4): ${DOMAIN} -> ${domain_v4} matches this server."
+        dns_match=1
+    fi
+    if [[ -n "${domain_v6}" && -n "${server_v6}" && "${domain_v6}" == "${server_v6}" ]]; then
+        ok "DNS ok (IPv6): ${DOMAIN} -> ${domain_v6} matches this server."
+        dns_match=1
+    fi
+
+    if [[ "${dns_match}" -ne 1 ]]; then
+        die "DNS does not point to this server. Domain: ${domain_v4:-no IPv4} / ${domain_v6:-no IPv6}. Server: ${server_v4:-no IPv4} / ${server_v6:-no IPv6}. Point an A and/or AAAA record here (or SKIP_DNS_CHECK=1 to ignore)."
     fi
 fi
 
