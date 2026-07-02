@@ -1,147 +1,123 @@
-# Deploying the Sentri Backend to a DigitalOcean Droplet
+# Deploying the Sentri Backend to DigitalOcean App Platform
 
 Stack: Flask (app factory in `app/__init__.py`) + Postgres + Flask-Migrate +
-Flask-Sock WebSockets, served by **gunicorn (gevent worker)** behind **nginx**
-with TLS from **Let's Encrypt**, managed by **systemd**.
+Flask-Sock WebSockets, served by **gunicorn (gevent worker)**. App Platform
+builds from GitHub, provides HTTPS automatically, and injects the database URL.
 
 ---
 
-## 0. Before you push code (local, one time)
+## 0. One-time local prep (already done in this repo)
 
-1. **Rotate the secrets that were committed to git.** The old `.env`
-   (`SECRET_KEY`, `JWT_SECRET_KEY`, DB password) is in git history and must be
-   considered compromised. Generate new ones:
-   ```bash
-   python -c "import secrets; print(secrets.token_urlsafe(48))"   # SECRET_KEY
-   python -c "import secrets; print(secrets.token_urlsafe(48))"   # JWT_SECRET_KEY
-   ```
-2. Commit the prep changes (new `.gitignore`, cleaned `requirements.txt`,
-   `gunicorn.conf.py`, `deploy/`) and push to your GitHub repo.
-   > Optional but recommended: scrub the old `.env` from history with
-   > `git filter-repo` or the BFG, then force-push. Rotating the secrets (step 1)
-   > is the essential part.
+- `requirements.txt` — cleaned to UTF-8, includes `gunicorn` + `gevent`.
+- `gunicorn.conf.py` — binds `0.0.0.0:$PORT` (App Platform sets `$PORT`) with a
+  `gevent` worker (required for the `/firewall-logs/ws` WebSocket).
+- `config.py` — reads `DATABASE_URL` from the environment and normalizes a
+  `postgres://` scheme to `postgresql://`.
+- `.gitignore` — keeps `venv/`, `__pycache__/`, `.env` out of git.
+
+**Rotate the secrets that were committed earlier** (the old `.env` is in git
+history and is compromised). Generate new values:
+
+```bash
+python3 -c "import secrets; print(secrets.token_urlsafe(48))"   # SECRET_KEY
+python3 -c "import secrets; print(secrets.token_urlsafe(48))"   # JWT_SECRET_KEY
+```
+
+Commit and push:
+
+```bash
+git add -A && git commit -m "Prep for DigitalOcean App Platform deploy"
+git push
+```
+
+> Do NOT run `pip freeze > requirements.txt` — the committed venv is a Windows
+> venv and `python`/`pip` aren't wired up locally. Use the curated
+> `requirements.txt` in this repo as-is.
 
 ---
 
-## 1. Create the Droplet
+## 1. Create the App
 
-- Ubuntu 24.04 LTS, smallest tier is fine to start ($6–12/mo).
-- Add your SSH key during creation.
-- Optionally create a **Managed Postgres** database instead of running Postgres
-  on the Droplet (more reliable, automatic backups). If you do, skip step 4 and
-  use the connection string DO gives you as `DATABASE_URL`.
+1. DigitalOcean dashboard -> **Apps** -> **Create App** -> **GitHub**.
+2. Authorize DO, pick the `Sentri-Backend` repo, branch `main`,
+   **Autodeploy on push** = on.
+3. DO detects Python automatically. It builds with `pip install -r requirements.txt`.
 
-## 2. Point DNS
+## 2. Set the Run Command
 
-Create an `A` record for `api.yourdomain.com` -> the Droplet's public IP.
+In the web service's settings, set the **Run Command** to:
 
-## 3. Server base setup (as root, then a non-root user)
-
-```bash
-ssh root@YOUR_DROPLET_IP
-adduser sentri && usermod -aG sudo sentri
-rsync --archive --chown=sentri:sentri ~/.ssh /home/sentri   # copy SSH access
-apt update && apt upgrade -y
-apt install -y python3-venv python3-pip nginx git ufw
-ufw allow OpenSSH && ufw allow 'Nginx Full' && ufw --force enable
+```
+gunicorn -c gunicorn.conf.py run:app
 ```
 
-## 4. Install Postgres (skip if using Managed DB)
+App Platform sets `$PORT` (default 8080); `gunicorn.conf.py` binds to it. HTTP
+health checks hit `/`, which returns 200 — no extra health-check config needed.
 
-```bash
-apt install -y postgresql
-sudo -u postgres psql -c "CREATE DATABASE neural_firewalldb;"
-sudo -u postgres psql -c "CREATE USER dbuser WITH PASSWORD 'STRONG_PASSWORD';"
-sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE neural_firewalldb TO dbuser;"
-sudo -u postgres psql -d neural_firewalldb -c "GRANT ALL ON SCHEMA public TO dbuser;"
+## 3. Add the Database
+
+- In the app, **Create/Attach Resource -> Database -> Postgres** (Dev DB is fine
+  to start).
+- DO auto-injects a `DATABASE_URL` env var. `config.py` reads it directly — no
+  code change. The URL includes `sslmode=require`, which psycopg2 honors.
+
+## 4. Environment Variables (App-level)
+
+Mark the two secrets as **encrypted**:
+
+| Key | Value |
+| --- | --- |
+| `SECRET_KEY` | your rotated secret |
+| `JWT_SECRET_KEY` | your rotated JWT secret |
+| `FLASK_APP` | `run.py`  (so the migration command below finds the app) |
+
+`DATABASE_URL` is provided automatically by the attached database — do not set it
+by hand.
+
+## 5. Run Database Migrations
+
+Add a **Pre-Deploy Job** (Components -> Create -> Job -> "Before every deploy")
+in the same app, sharing the repo, with command:
+
 ```
-
-## 5. Deploy the app (as the `sentri` user)
-
-```bash
-su - sentri
-git clone https://github.com/YOUR_ORG/Sentri-Backend.git
-cd Sentri-Backend
-python3 -m venv venv
-source venv/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
-```
-
-Create the production `.env` (NOT committed) with the rotated secrets:
-
-```bash
-cat > .env <<'EOF'
-SECRET_KEY=<rotated-secret>
-JWT_SECRET_KEY=<rotated-jwt-secret>
-DATABASE_URL=postgresql://dbuser:STRONG_PASSWORD@localhost:5432/neural_firewalldb
-EOF
-chmod 600 .env
-```
-
-Run database migrations:
-
-```bash
-export FLASK_APP=run.py
 flask db upgrade
 ```
 
-Smoke-test gunicorn:
+Ensure the job also has `FLASK_APP=run.py` and access to `DATABASE_URL`
+(app-level env vars are inherited). This runs the Alembic migrations against the
+managed database before each deploy.
+
+> Alternative: skip the job and run `flask db upgrade` once from the App
+> Platform **Console** tab after the first deploy.
+
+## 6. Deploy & Verify
+
+Click **Deploy**. Once live at `https://<app-name>.ondigitalocean.app`:
 
 ```bash
-gunicorn -c gunicorn.conf.py run:app     # Ctrl-C after it says "Listening"
-```
-
-## 6. Run under systemd
-
-```bash
-sudo cp deploy/sentri.service /etc/systemd/system/sentri.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now sentri
-sudo systemctl status sentri            # should be active (running)
-```
-
-## 7. nginx reverse proxy + TLS
-
-```bash
-sudo cp deploy/nginx.conf /etc/nginx/sites-available/sentri
-# edit the file: set server_name to api.yourdomain.com
-sudo ln -s /etc/nginx/sites-available/sentri /etc/nginx/sites-enabled/
-sudo rm -f /etc/nginx/sites-enabled/default
-sudo nginx -t && sudo systemctl reload nginx
-
-sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d api.yourdomain.com     # gets + installs the cert, enables HTTPS redirect
-```
-
-## 8. Verify
-
-```bash
-curl https://api.yourdomain.com/                 # {"message": "Neural Firewall Backend Running"}
-# Swagger UI:   https://api.yourdomain.com/apidocs/
-# WebSocket:    wss://api.yourdomain.com/firewall-logs/ws?token=<JWT>
+curl https://<app-name>.ondigitalocean.app/          # {"message": "Neural Firewall Backend Running"}
+# Swagger UI:   https://<app-name>.ondigitalocean.app/apidocs/
+# WebSocket:    wss://<app-name>.ondigitalocean.app/firewall-logs/ws?token=<JWT>
 ```
 
 ---
 
 ## Updating after a code change
 
-```bash
-su - sentri && cd Sentri-Backend
-git pull
-source venv/bin/activate
-pip install -r requirements.txt      # if deps changed
-flask db upgrade                     # if new migrations
-sudo systemctl restart sentri
-```
+Just push to `main` — autodeploy rebuilds and (if the pre-deploy job is set up)
+runs migrations. To roll back, use the **Deployments** tab.
 
 ## Notes / gotchas
 
-- **`run.py` is dev-only** (`debug=True`, self-signed SSL). Production never runs
-  it directly — gunicorn imports `run:app`, and nginx/certbot handle TLS.
+- **Ephemeral filesystem:** App Platform containers have no persistent local
+  disk. This app writes no local files, so nothing is lost on redeploy — keep it
+  that way (store everything in Postgres).
 - **gevent + psycopg2:** DB calls are blocking under gevent. Fine at low/medium
-  load. If you see WebSocket stalls under heavy DB load, add `psycogreen` and
-  patch psycopg2, or move DB-heavy work off the request path.
-- **CORS** is currently wide open (`CORS(app)`). Lock it to your frontend origin
-  before going public.
-- Watch logs with: `sudo journalctl -u sentri -f`
+  load. If WebSockets stall under heavy DB load, add `psycogreen` and patch
+  psycopg2, or move DB-heavy work off the request path.
+- **CORS** is currently wide open (`CORS(app)` in `app/__init__.py`). Lock it to
+  your frontend origin before going public.
+- **`run.py` is dev-only** (`debug=True`, self-signed SSL). Production never runs
+  it directly — App Platform runs `gunicorn ... run:app`, importing the `app`
+  object without calling `app.run()`.
+- Logs are in the App Platform **Runtime Logs** tab (gunicorn logs to stdout).
