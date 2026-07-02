@@ -1,0 +1,47 @@
+# Run everything with:  docker compose up --build
+# App:    http://localhost:8000            (and /apidocs/ for Swagger)
+# WS:     ws://localhost:8000/firewall-logs/ws?token=<JWT>
+# Postgres is only reachable inside the compose network by default.
+#
+# The ${VAR:-default} form means it works with zero setup, but you can override
+# any value from a local .env file (gitignored) for real secrets.
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-sentri}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sentri}
+      POSTGRES_DB: ${POSTGRES_DB:-sentridb}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # web waits for this to be "healthy" before starting, so the app never
+      # boots before Postgres is accepting connections.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sentri} -d ${POSTGRES_DB:-sentridb}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # Uncomment to connect a local DB client (e.g. DBeaver/pgAdmin) on :5432:
+    # ports:
+    #   - "5432:5432"
+
+  web:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # --- These three are the only things the app strictly needs ---
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sentri}:${POSTGRES_PASSWORD:-sentri}@db:5432/${POSTGRES_DB:-sentridb}
+      # Dev-only placeholders. Put real values in a .env file before going public.
+      SECRET_KEY: ${SECRET_KEY:-local-dev-secret-key-CHANGE-ME-7d3e9a1b4c}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-local-dev-jwt-secret-CHANGE-ME-2f8c4b6e}
+      FLASK_APP: run.py
+      PORT: "8000"
+    ports:
+      - "8000:8000"
+
+volumes:
+  pgdata:
