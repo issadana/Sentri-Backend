@@ -18,13 +18,17 @@ services:
     healthcheck:
       # web waits for this to be "healthy" before starting, so the app never
       # boots before Postgres is accepting connections.
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sentri} -d ${POSTGRES_DB:-sentridb}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-sentri} -d ${POSTGRES_DB:-sentridb}",
+        ]
       interval: 5s
       timeout: 5s
       retries: 10
     # Uncomment to connect a local DB client (e.g. DBeaver/pgAdmin) on :5432:
-    # ports:
-    #   - "5432:5432"
+    ports:
+      - "5432:5432"
 
   web:
     build: .
