@@ -1,4 +1,6 @@
 import os
+from datetime import timedelta
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -17,6 +19,9 @@ class Config:
 
     SECRET_KEY = os.getenv("SECRET_KEY")
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+
+    # Access token lifetime: one week.
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(weeks=1)
 
     # Accept the JWT from the Authorization header (REST + native WS clients)
     # and from the query string (browser WebSocket clients, which cannot set
