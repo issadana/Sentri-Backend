@@ -91,4 +91,7 @@ def create_app():
     from app.routes.firewall_logs import firewall_logs_bp
     app.register_blueprint(firewall_logs_bp)
 
+    from app.routes.chat import chat_bp
+    app.register_blueprint(chat_bp)
+
     return app

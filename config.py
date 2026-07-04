@@ -28,3 +28,6 @@ class Config:
     # custom headers on the handshake): wss://host/firewall-logs/ws?token=<JWT>
     JWT_TOKEN_LOCATION = ["headers", "query_string"]
     JWT_QUERY_STRING_NAME = "token"
+
+    # Groq API key for the SSE chatbot (langchain_groq / ChatGroq).
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY")
