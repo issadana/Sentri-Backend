@@ -42,6 +42,9 @@ services:
       # Dev-only placeholders. Put real values in a .env file before going public.
       SECRET_KEY: ${SECRET_KEY:-local-dev-secret-key-CHANGE-ME-7d3e9a1b4c}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-local-dev-jwt-secret-CHANGE-ME-2f8c4b6e}
+      # Required by the SSE chatbot (/api/mobile_chat). Set the real value in the
+      # host .env next to this file (gitignored) or export it before deploying.
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
       FLASK_APP: run.py
       PORT: "8000"
     ports:
