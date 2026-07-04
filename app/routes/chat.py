@@ -58,7 +58,7 @@ parameters:
     name: token
     required: false
     type: string
-    description: JWT access token, for clients (e.g. EventSource) that cannot set the Authorization header. Alternatively send it as "Authorization: Bearer <token>".
+    description: JWT access token, for clients (e.g. EventSource) that cannot set the Authorization header. Alternatively send it in the Authorization header as a Bearer token.
 responses:
   200:
     description: SSE stream of init/message/end events.
