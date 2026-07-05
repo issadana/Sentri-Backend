@@ -139,11 +139,18 @@ class FirewallLog(db.Model):
     )
 
     src_ip = db.Column(db.String(45))
+    dst_ip = db.Column(db.String(45))              # destination IP of the connection
     src_port = db.Column(db.Integer)
     dst_port = db.Column(db.Integer)
 
     protocol = db.Column(db.SmallInteger)          # 0/1/6/17
     size_bytes = db.Column(db.Integer)
+
+    # Network-flow features.
+    duration = db.Column(db.Float)                 # flow duration in seconds
+    fwd_pkts = db.Column(db.Integer)               # forward-direction packet count
+    bwd_pkts = db.Column(db.Integer)               # backward-direction packet count
+    fwd_rate = db.Column(db.Float)                 # forward packet rate (packets/sec)
 
     selected_model = db.Column(db.String(100))
     selected_score = db.Column(db.Float)           # [0, 1]
