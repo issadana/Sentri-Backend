@@ -15,11 +15,9 @@ class User(db.Model):
 
     refresh_tokens = db.relationship("RefreshToken", backref="user", cascade="all, delete-orphan")
     blacklist_entries = db.relationship("BlacklistEntry", backref="user", cascade="all, delete-orphan")
-    acl_entries = db.relationship("AclEntry", backref="user", cascade="all, delete-orphan")
     unknown_events = db.relationship("UnknownEvent", backref="user", cascade="all, delete-orphan")
     settings = db.relationship("UserSettings", backref="user", uselist=False, cascade="all, delete-orphan")
-    model_versions = db.relationship("ModelVersion", backref="user", cascade="all, delete-orphan")
-    
+
     hardware_metrics = db.relationship("HardwareMetric", backref="user", cascade="all, delete-orphan")
     firewall_logs = db.relationship("FirewallLog", backref="user", cascade="all, delete-orphan")
 
@@ -50,20 +48,6 @@ class BlacklistEntry(db.Model):
     )
 
 
-class AclEntry(db.Model):
-    __tablename__ = "acl_entries"
-
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    ip = db.Column(db.String(45), nullable=False)
-    notes = db.Column(db.String(255))
-    added_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    __table_args__ = (
-        db.UniqueConstraint("user_id", "ip", name="unique_acl_user_ip"),
-    )
-
-
 class UnknownEvent(db.Model):
     __tablename__ = "unknown_events"
 
@@ -90,24 +74,6 @@ class UnknownEvent(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     reviewed_at = db.Column(db.DateTime)
 
-    training_sample = db.relationship("TrainingSample", backref="event", uselist=False)
-
-
-class TrainingSample(db.Model):
-    __tablename__ = "training_samples"
-
-    id = db.Column(db.Integer, primary_key=True)
-    event_id = db.Column(db.Integer, db.ForeignKey("unknown_events.id"), unique=True)
-
-    label = db.Column(db.String(20), nullable=False)
-    protocol = db.Column(db.Integer)
-    flow_iat_mean = db.Column(db.Float)
-    tot_fwd_pkts = db.Column(db.Integer)
-    pkt_size_avg = db.Column(db.Float)
-    flow_duration = db.Column(db.Float)
-
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
 
 class UserSettings(db.Model):
     __tablename__ = "user_settings"
@@ -129,20 +95,6 @@ class UserSettings(db.Model):
 
     max_log_entries = db.Column(db.Integer, default=200)
     log_system_traffic = db.Column(db.Boolean, default=False)
-
-class ModelVersion(db.Model):
-    __tablename__ = "model_versions"
-
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-
-    name = db.Column(db.String(100), nullable=False)
-    filename = db.Column(db.String(255), nullable=False)
-    accuracy = db.Column(db.Float)
-    samples = db.Column(db.Integer)
-    is_active = db.Column(db.Boolean, default=False)
-    deployed_at = db.Column(db.DateTime, default=datetime.utcnow)
-
 
 
 class HardwareMetric(db.Model):

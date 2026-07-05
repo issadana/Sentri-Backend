@@ -73,18 +73,9 @@ def create_app():
     from app.routes.blacklist import blacklist_bp
     app.register_blueprint(blacklist_bp)
 
-    from app.routes.acl import acl_bp
-    app.register_blueprint(acl_bp)
-
     from app.routes.settings import settings_bp
     app.register_blueprint(settings_bp)
 
-    from app.routes.events import events_bp
-    app.register_blueprint(events_bp)
-
-    from app.routes.models_api import models_bp
-    app.register_blueprint(models_bp)
-    
     from app.routes.hardware_metrics import hardware_metrics_bp
     app.register_blueprint(hardware_metrics_bp)
 
