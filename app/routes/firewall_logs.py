@@ -15,7 +15,7 @@ from flask_jwt_extended.exceptions import JWTExtendedException
 from jwt import PyJWTError
 
 from app import db, sock
-from app.models import FirewallLog, BlacklistEntry, UnknownEvent, UserSettings
+from app.models import FirewallLog, BlacklistEntry, UserSettings
 
 
 firewall_logs_bp = Blueprint(
@@ -251,38 +251,6 @@ def _auto_blacklist(user_id, logs):
     return payloads
 
 
-def _record_unknown_events(user_id, logs):
-    """
-    Optional §5.6 — for logs whose selected_score is ambiguous
-    (warn_threshold < score <= block_threshold), queue an unknown_events row
-    (status pending) for later review/training. Thresholds come from settings.
-    """
-    settings = UserSettings.query.filter_by(user_id=int(user_id)).first()
-    if not settings:
-        return
-
-    warn = settings.warn_threshold
-    block = settings.block_threshold
-
-    for log in logs:
-        score = log.selected_score
-        if score is None:
-            continue
-        if warn < score <= block:
-            bf_score, dos_score = _extract_bf_dos(log.all_model_scores)
-            db.session.add(UnknownEvent(
-                user_id=int(user_id),
-                src_ip=log.src_ip,
-                src_port=log.src_port,
-                dst_port=log.dst_port,
-                protocol=log.protocol,
-                size_bytes=log.size_bytes,
-                bf_score=bf_score,
-                dos_score=dos_score,
-                status="pending",
-            ))
-
-
 def _persist_batch(user_id, raw_logs):
     """
     Validate, bulk-insert and post-process a batch of wire-format logs in a
@@ -298,7 +266,6 @@ def _persist_batch(user_id, raw_logs):
     ids = [log.id for log in logs]
 
     blacklist_payloads = _auto_blacklist(user_id, logs)
-    _record_unknown_events(user_id, logs)
 
     db.session.commit()
 
