@@ -109,6 +109,15 @@ def _coerce_int(value):
         raise ValueError("expected an integer")
 
 
+def _coerce_float(value):
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        raise ValueError("expected a number")
+
+
 def _parse_created_at(value):
     """Parse the device ISO-8601 timestamp; fall back to server now() on miss."""
     if isinstance(value, str) and value.strip():
@@ -165,6 +174,13 @@ def _build_log(user_id, data):
         except ValueError:
             raise ValueError("src_ip is not a valid IP address")
 
+    dst_ip = data.get("dst_ip")
+    if dst_ip:
+        try:
+            ipaddress.ip_address(dst_ip)
+        except ValueError:
+            raise ValueError("dst_ip is not a valid IP address")
+
     selected_score = data.get("selected_score")
     if selected_score is not None:
         try:
@@ -189,10 +205,15 @@ def _build_log(user_id, data):
     return FirewallLog(
         user_id=int(user_id),
         src_ip=(src_ip or None),
+        dst_ip=(dst_ip or None),
         src_port=_coerce_int(data.get("src_port")),
         dst_port=_coerce_int(data.get("dst_port")),
         protocol=protocol,
         size_bytes=_coerce_int(data.get("size_bytes")),
+        duration=_coerce_float(data.get("duration")),
+        fwd_pkts=_coerce_int(data.get("fwd_pkts")),
+        bwd_pkts=_coerce_int(data.get("bwd_pkts")),
+        fwd_rate=_coerce_float(data.get("fwd_rate")),
         selected_model=_clip(data.get("selected_model"), _MAXLEN["selected_model"]),
         selected_score=selected_score,
         all_model_scores=scores,
@@ -335,6 +356,9 @@ def create_firewall_log():
             src_ip:
               type: string
               example: "185.220.101.5"
+            dst_ip:
+              type: string
+              example: "10.0.0.4"
             src_port:
               type: integer
               example: 52341
@@ -347,6 +371,18 @@ def create_firewall_log():
             size_bytes:
               type: integer
               example: 1460
+            duration:
+              type: number
+              example: 0.734
+            fwd_pkts:
+              type: integer
+              example: 12
+            bwd_pkts:
+              type: integer
+              example: 9
+            fwd_rate:
+              type: number
+              example: 16.35
             selected_model:
               type: string
               example: "BF_v1"
@@ -398,10 +434,15 @@ def _serialize_log(log):
         "id": log.id,
         "user_id": log.user_id,
         "src_ip": log.src_ip,
+        "dst_ip": log.dst_ip,
         "src_port": log.src_port,
         "dst_port": log.dst_port,
         "protocol": log.protocol,
         "size_bytes": log.size_bytes,
+        "duration": log.duration,
+        "fwd_pkts": log.fwd_pkts,
+        "bwd_pkts": log.bwd_pkts,
+        "fwd_rate": log.fwd_rate,
         "selected_model": log.selected_model,
         "selected_score": log.selected_score,
         "all_model_scores": log.all_model_scores,
