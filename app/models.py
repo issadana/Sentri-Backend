@@ -15,6 +15,7 @@ class User(db.Model):
 
     refresh_tokens = db.relationship("RefreshToken", backref="user", cascade="all, delete-orphan")
     blacklist_entries = db.relationship("BlacklistEntry", backref="user", cascade="all, delete-orphan")
+    unknown_events = db.relationship("UnknownEvent", backref="user", cascade="all, delete-orphan")
     settings = db.relationship("UserSettings", backref="user", uselist=False, cascade="all, delete-orphan")
 
     hardware_metrics = db.relationship("HardwareMetric", backref="user", cascade="all, delete-orphan")
@@ -45,6 +46,33 @@ class BlacklistEntry(db.Model):
     __table_args__ = (
         db.UniqueConstraint("user_id", "ip", name="unique_blacklist_user_ip"),
     )
+
+
+class UnknownEvent(db.Model):
+    __tablename__ = "unknown_events"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+
+    src_ip = db.Column(db.String(45))
+    src_port = db.Column(db.Integer)
+    dst_port = db.Column(db.Integer)
+    protocol = db.Column(db.Integer)
+    size_bytes = db.Column(db.Integer)
+
+    flow_iat_mean = db.Column(db.Float)
+    tot_fwd_pkts = db.Column(db.Integer)
+    pkt_size_avg = db.Column(db.Float)
+    flow_duration = db.Column(db.Float)
+
+    bf_score = db.Column(db.Float)
+    dos_score = db.Column(db.Float)
+
+    status = db.Column(db.String(20), default="pending")
+    label = db.Column(db.String(20))
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    reviewed_at = db.Column(db.DateTime)
 
 
 class UserSettings(db.Model):
