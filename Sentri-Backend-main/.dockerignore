@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Virtual environments (never copy these into the image)
+venv/
+.venv/
+env/
+
+# Local secrets — the image must not ship these
+.env
+.env.*
+
+# Git / editor / OS cruft
+.git/
+.gitignore
+.idea/
+.vscode/
+.DS_Store
+*.swp
+
+# Logs
+*.log
+
+# Docker files themselves don't belong in the build context
+Dockerfile
+docker-compose*.yml
+.dockerignore

@@ -1,0 +1,93 @@
+
+<div class="stats-container">
+    <div class="card">
+        <h3>Total Packets Scanned</h3>
+        <p id="totalLogsCount">0</p>
+    </div>
+    <div class="card">
+        <h3>Threat Attacks Blocked</h3>
+        <p id="blockedThreatsCount" style="color: var(--accent-danger);">0</p>
+    </div>
+</div>
+
+
+<div class="charts-grid">
+    <div class="chart-card layout-full">
+        <h3>Threat Matrix Detection Horizon (Sliding 50 Event Log Windows)</h3>
+        <div style="position: relative; height: 200px;"><canvas id="ingestionLineChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+        <h3>AI Model Mean Score Distribution</h3>
+        <div style="position: relative; height: 240px;"><canvas id="vectorRadarChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+        <h3>AI Model Detection Volume</h3>
+        <div style="position: relative; height: 240px;"><canvas id="densityBarChart"></canvas></div>
+    </div>
+</div>
+
+
+
+<script>
+
+
+
+function getCSSColor(v) { 
+    return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); 
+}
+
+
+async function updateDashboardTelemetry() {
+    try {
+        const response = await authFetch(`${base_url}/dashboard/api/chart-data`);
+        if (!response.ok) return;
+        const data = await response.json();
+
+        document.getElementById('totalLogsCount').textContent = data.metrics.total_logs;
+        document.getElementById('blockedThreatsCount').textContent = data.metrics.blocked_threats;
+
+        const rawPoints = data.charts.scatter_points || [];
+        const structuralGrid = getCSSColor('--chart-grid');
+        const coreText = getCSSColor('--text-primary');
+        const subText = getCSSColor('--text-secondary');
+        const brandBlue = getCSSColor('--accent-blue');
+        const brandCrimson = getCSSColor('--accent-danger');
+
+        if (activeCharts.line) activeCharts.line.destroy();
+        activeCharts.line = new Chart(document.getElementById('ingestionLineChart').getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: rawPoints.map(p => p.x),
+                datasets: [{
+                    data: rawPoints.map(p => p.y),
+                    borderColor: 'rgba(100, 116, 139, 0.15)',
+                    borderWidth: 1.5,
+                    pointBackgroundColor: rawPoints.map(p => p.y >= 75 ? brandCrimson : brandBlue),
+                    pointRadius: rawPoints.map(p => p.y >= 75 ? 6 : 4),
+                    fill: false, tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { x: { grid: { display: false }, ticks: { color: subText } }, y: { min: 0, max: 100, grid: { color: structuralGrid }, ticks: { color: subText } } }
+            }
+        });
+
+        if (activeCharts.radar) activeCharts.radar.destroy();
+        activeCharts.radar = new Chart(document.getElementById('vectorRadarChart').getContext('2d'), {
+            type: 'radar',
+            data: { labels: data.charts.labels, datasets: [{ data: data.charts.probabilities, backgroundColor: 'rgba(37, 99, 235, 0.08)', borderColor: brandBlue, borderWidth: 1.5 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { r: { grid: { color: structuralGrid }, angleLines: { color: structuralGrid }, pointLabels: { color: subText }, ticks: { display: false } } } }
+        });
+
+        if (activeCharts.bar) activeCharts.bar.destroy();
+        activeCharts.bar = new Chart(document.getElementById('densityBarChart').getContext('2d'), {
+            type: 'bar',
+            data: { labels: data.charts.labels, datasets: [{ data: data.charts.counts, backgroundColor: brandBlue, borderRadius: 4, barThickness: 12 }] },
+            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { color: structuralGrid }, ticks: { color: subText } }, y: { grid: { display: false }, ticks: { color: coreText } } } }
+        });
+    } catch (err) { console.error("Telemetry mapping issue:", err); }
+}
+
+</script>

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - SOC Intelligence Platform</title>
+    <script src="{{ url_for('static', filename='js/config.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+    <style>
+      :root {
+    --bg-canvas: #ffffff;         
+    --bg-surface: #f8fafc;       
+    --border-subtle: #cbd5e1;     
+    --text-primary: #0f172a;      
+    --text-secondary: #64748b;    
+    --accent-blue: #2563eb;       
+    --accent-blue-hover: #1d4ed8;
+    --accent-danger: #dc2626;     
+    --bg-danger-light: rgba(220, 38, 38, 0.06);
+}
+
+body { 
+    font-family: 'Segoe UI', system-ui, sans-serif; 
+    background-color: #ffffff !important;
+    color: #0f172a; 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 1.5rem;
+}
+
+.login-container {
+    width: 100%;
+    max-width: 420px;
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 2.5rem 2rem;
+    box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08);
+}
+
+.form-input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-subtle);
+    background-color: #ffffff; 
+    color: #0f172a;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+.brand-header { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 2rem; text-align: center; }
+.brand-badge { background-color: var(--accent-blue); color: #ffffff; font-size: 0.8rem; font-weight: 700; padding: 0.3rem 0.6rem; border-radius: 6px; letter-spacing: 0.5px; }
+.brand-title { font-size: 1.4rem; font-weight: 600; color: #0f172a; }
+.brand-subtitle { font-size: 0.88rem; color: var(--text-secondary); }
+.flash-messages { margin-bottom: 1.25rem; }
+.alert { padding: 0.75rem 1rem; border-radius: 8px; font-size: 0.85rem; font-weight: 500; display: flex; align-items: center; gap: 8px; border: 1px solid var(--accent-danger); background-color: var(--bg-danger-light); color: var(--accent-danger); }
+.form-group { margin-bottom: 1.25rem; }
+.form-label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.3px; }
+.input-wrapper { position: relative; }
+.form-input:focus { outline: none; border-color: var(--accent-blue); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); }
+.submit-btn { width: 100%; background-color: var(--accent-blue); color: #ffffff; border: none; padding: 0.75rem; font-size: 0.95rem; font-weight: 600; border-radius: 8px; cursor: pointer; margin-top: 0.5rem; transition: background-color 0.2s, transform 0.1s; }
+.submit-btn:hover { background-color: var(--accent-blue-hover); }
+.submit-btn:active { transform: scale(0.98); }
+.footer-note { margin-top: 1.75rem; text-align: center; font-size: 0.78rem; color: var(--text-secondary); line-height: 1.4; }
+    </style>
+</head>
+<body>
+
+    <div class="login-container">
+        <div class="brand-header">
+            <span class="brand-badge">NOVA PLATFORM</span>
+            <h1 class="brand-title">Threat Intelligence Center</h1>
+            <p class="brand-subtitle">Authorized SecOps Operator Sign-In</p>
+        </div>
+
+        <div id="loginError" class="flash-messages" style="display:none;">
+            <div class="alert" id="loginErrorText"></div>
+        </div>
+
+        <form id="loginForm" autocomplete="off">
+            <div class="form-group">
+                <label class="form-label" for="email">Operator Email</label>
+                <div class="input-wrapper">
+                    <input type="email" id="email" name="email" class="form-input" placeholder="e.g., admin@sentri.local" required autofocus>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="password">Security Password</label>
+                <div class="input-wrapper">
+                    <input type="password" id="password" name="password" class="form-input" placeholder="••••••••" required>
+                </div>
+            </div>
+
+            <button type="submit" class="submit-btn" id="loginSubmitBtn">Verify Identity</button>
+        </form>
+
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const auth = getStoredAuth();
+            if (auth?.access_token && auth.user?.is_admin) {
+                window.location.href = "/dashboard";
+            }
+        });
+
+        document.getElementById("loginForm").addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const errorBox = document.getElementById("loginError");
+            const errorText = document.getElementById("loginErrorText");
+            const submitBtn = document.getElementById("loginSubmitBtn");
+
+            errorBox.style.display = "none";
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Verifying...";
+
+            try {
+                await loginWithEmail(
+                    document.getElementById("email").value.trim(),
+                    document.getElementById("password").value
+                );
+                window.location.href = "/dashboard";
+            } catch (err) {
+                errorText.textContent = err.message;
+                errorBox.style.display = "block";
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = "Verify Identity";
+            }
+        });
+    </script>
+</body>
+</html>

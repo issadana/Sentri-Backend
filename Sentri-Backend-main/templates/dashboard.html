@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SOC Dashboard - Live Intelligence Platform</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --bg-canvas: #f8fafc;         
+            --bg-surface: #ffffff;        
+            --bg-surface-header: #f1f5f9; 
+            --border-subtle: #e2e8f0;     
+            --text-primary: #0f172a;      
+            --text-secondary: #64748b;    
+            --accent-blue: #2563eb;       
+            --accent-blue-hover: #1d4ed8;
+            --accent-danger: #dc2626;     
+            --accent-success: #16a34a;    
+            --chart-grid: rgba(0, 0, 0, 0.04);
+            --navbar-bg: #ffffff;         
+            --btn-toggle-bg: #f1f5f9;
+            --btn-toggle-hover: #e2e8f0;
+        }
+
+        body.dark-mode {
+            --bg-canvas: #090d16;
+            --bg-surface: #111827;
+            --bg-surface-header: #1f2937;
+            --border-subtle: #1f293d;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-blue: #38bdf8;
+            --accent-blue-hover: #0ea5e9;
+            --accent-danger: #f43f5e;
+            --accent-success: #10b981;
+            --chart-grid: rgba(255, 255, 255, 0.05);
+            --navbar-bg: #111827;         
+            --btn-toggle-bg: #1f2937;
+            --btn-toggle-hover: #374151;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            font-family: 'Segoe UI', system-ui, sans-serif; 
+            background-color: var(--bg-canvas); color: var(--text-primary); 
+            padding: 2rem; transition: background-color 0.2s, color 0.2s;
+        }
+
+
+        .stats-container { display: flex; gap: 1.5rem; margin-bottom: 2rem; }
+        .card { background-color: var(--bg-surface); padding: 1.5rem; border-radius: 8px; flex: 1; border: 1px solid var(--border-subtle); }
+        .card h3 { margin: 0; color: var(--text-secondary); font-size: 0.9rem; text-transform: uppercase; }
+        .card p { margin: 0.5rem 0 0 0; font-size: 2rem; font-weight: bold; color: var(--accent-blue); }
+        
+        .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+        .chart-card { background-color: var(--bg-surface); padding: 1.5rem; border-radius: 8px; min-height: 320px; border: 1px solid var(--border-subtle); }
+        .chart-card h3 { margin-top: 0; margin-bottom: 1rem; color: var(--accent-blue); font-size: 1rem; }
+        .layout-full { grid-column: span 2; }
+
+        .log-table { width: 100%; border-collapse: collapse; margin-top: 1rem; background: var(--bg-surface); border-radius: 8px; overflow: hidden; border: 1px solid var(--border-subtle); }
+        .log-table th, .log-table td { padding: 0.75rem 1rem; text-align: left; }
+        .log-table th { background-color: var(--bg-surface-header); color: var(--text-secondary); font-size: 0.85rem; text-transform: uppercase; }
+        .log-table tr { border-bottom: 1px solid var(--border-subtle); }
+        
+        .badge { padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: bold; }
+        .badge-block { background-color: rgba(220, 38, 38, 0.1); color: var(--accent-danger); }
+        .badge-allow { background-color: rgba(22, 163, 74, 0.1); color: var(--accent-success); }
+
+        .action-ai-btn {
+            background-color: var(--accent-blue); color: #ffffff; border: none;
+            padding: 0.4rem 0.75rem; font-size: 0.8rem; font-weight: 600; border-radius: 6px; cursor: pointer;
+        }
+        .action-ai-btn:hover { background-color: var(--accent-blue-hover); }
+
+        /* Floating Overlay Modal */
+
+        /* Modal Content Markdown Element adjustments */
+#modalOutputContainer .nova-content h3 {
+    font-size: 1.05rem;
+    margin: 1.2rem 0 0.6rem 0;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-subtle);
+    padding-bottom: 4px;
+}
+
+#modalOutputContainer .nova-content h3:first-child {
+    margin-top: 0;
+}
+
+#modalOutputContainer .nova-content p, 
+#modalOutputContainer .nova-content li {
+    font-size: 0.92rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+}
+
+#modalOutputContainer .nova-content ul, 
+#modalOutputContainer .nova-content ol {
+    margin: 0 0 6px 0;
+    padding-left: 1.25rem;
+}
+
+/* Centered Processing State CSS */
+.analysis-loader-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 0;
+    gap: 1rem;
+    color: var(--text-secondary);
+}
+
+.analysis-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    border-top: 3px solid var(--accent-blue);
+    border-radius: 50%;
+    animation: modalSpin 0.8s linear infinite;
+}
+
+.analysis-error-block {
+    background-color: rgba(239, 68, 68, 0.1);
+    border: 1px solid var(--accent-danger);
+    padding: 1rem;
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+
+@keyframes modalSpin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 2000; opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
+        }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        .modal-card {
+            background-color: var(--bg-surface); border: 1px solid var(--border-subtle);
+            width: 100%; max-width: 650px; border-radius: 12px; display: flex; flex-direction: column; max-height: 85vh;
+        }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-subtle); }
+        .modal-close-x { background: none; border: none; font-size: 1.4rem; color: var(--text-secondary); cursor: pointer; }
+        .modal-body { padding: 1.5rem; overflow-y: auto; font-size: 0.95rem; line-height: 1.6; }
+
+        .ai-loading-container { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2.5rem 0; gap: 12px; }
+        .spinner { width: 32px; height: 32px; border: 3px solid var(--border-subtle); border-top-color: var(--accent-blue); border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .report-text white-space: pre-wrap;
+        .report-text h3 { margin: 1.25rem 0 0.5rem 0; font-size: 1.05rem; color: var(--accent-blue); }
+        .report-text h3:first-child { margin-top: 0; }
+        .report-text ul { padding-left: 1.25rem; margin-bottom: 0.75rem; }
+
+        .modal-close-x { 
+            background: none; 
+            border: none; 
+            font-size: 1.6rem; 
+            color: var(--text-secondary); 
+            cursor: pointer;
+            padding: 0.25rem;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            /* Smooth transitions for high-fidelity interactive feedback */
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Elegant hover accent states */
+        .modal-close-x:hover { 
+            color: var(--accent-danger);
+            background-color: rgba(220, 38, 38, 0.08);
+            transform: scale(1.12) rotate(90deg);
+        }
+
+        /* Subtle active press down response */
+        .modal-close-x:active {
+            transform: scale(0.95);
+        }
+
+
+        /* Floating Chat Launcher Button */
+.chat-launcher-btn {
+    position: fixed; bottom: 2rem; right: 2rem;
+    width: 60px; height: 60px; border-radius: 50%;
+    background-color: var(--accent-blue); border: none; cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; align-items: center; justify-content: center;
+    font-size: 1.6rem; z-index: 3000; transition: all 0.2s ease;
+}
+.chat-launcher-btn:hover { background-color: var(--accent-blue-hover); transform: scale(1.08); }
+
+/* Right Sidebar Panel Layout */
+/* Expanded Sidebar Canvas */
+.chat-sidebar {
+    position: fixed; 
+    top: 0; 
+    right: -520px; 
+    width: 500px; /* Increased to 500px for maximum log readability */
+    height: 100%;
+    background-color: var(--bg-surface); 
+    border-left: 1px solid var(--border-subtle);
+    box-shadow: -6px 0 25px rgba(0,0,0,0.08); 
+    z-index: 3100;
+    display: flex; 
+    flex-direction: column; 
+    transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.chat-sidebar.active { right: 0; }
+
+/* Structural Message Wrapper with Avatars */
+.msg-wrapper {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 0.75rem;
+    max-width: 85%;
+}
+.wrapper-user { align-self: flex-end; flex-direction: row-reverse; }
+.wrapper-bot { align-self: flex-start; }
+
+/* Clean Minimal Circle Avatars */
+.chat-avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.95rem; font-weight: bold; flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
+.avatar-user { background-color: #e2e8f0; color: #475569; }
+.avatar-bot { background-color: rgba(37, 99, 235, 0.1); color: var(--accent-blue); }
+
+/* Updated Speech Bubbles (Removing raw text headers) */
+.msg-bubble { 
+    padding: 0.65rem 0.95rem; 
+    border-radius: 12px; 
+    font-size: 0.88rem; 
+    line-height: 1.45; 
+    word-break: break-word; 
+}
+.msg-user { background-color: var(--accent-blue); color: #ffffff; border-top-right-radius: 2px; }
+.msg-bot { background-color: var(--bg-surface-header); color: var(--text-primary); border-top-left-radius: 2px; }
+
+.chat-sidebar-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 1.25rem; border-bottom: 1px solid var(--border-subtle); background-color: var(--bg-surface-header);
+}
+.chat-sidebar-header h2 { font-size: 1rem; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+
+.chat-msg-area { flex: 1; padding: 1rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem; }
+
+/* Speech Bubble styling */
+.msg-bubble { max-width: 85%; padding: 0.6rem 0.9rem; border-radius: 12px; font-size: 0.88rem; line-height: 1.4; word-break: break-word; }
+.msg-user { background-color: var(--accent-blue); color: #ffffff; align-self: flex-end; border-bottom-right-radius: 2px; }
+.msg-bot { background-color: var(--bg-surface-header); color: var(--text-primary); align-self: flex-start; border-bottom-left-radius: 2px; }
+.msg-bot h3 { font-size: 0.95rem; margin-top: 0.5rem; color: var(--accent-blue); }
+.msg-bot ul { padding-left: 1rem; }
+
+.chat-input-container { padding: 1rem; border-top: 1px solid var(--border-subtle); display: flex; gap: 8px; }
+.chat-input-field { flex: 1; padding: 0.5rem 0.75rem; border-radius: 6px; border: 1px solid var(--border-subtle); background: var(--bg-canvas); color: var(--text-primary); font-size: 0.88rem; }
+.chat-input-field:focus { outline: 1px solid var(--accent-blue); }
+.chat-send-btn { background-color: var(--accent-blue); border: none; color: #ffffff; padding: 0.5rem 1rem; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.85rem; }
+.chat-send-btn:hover { background-color: var(--accent-blue-hover); }
+
+.app-container {
+    display: flex;
+    min-height: 100vh;
+    width: 100vw;
+    margin: -2rem; 
+}
+
+
+
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+
+        {% include 'sidebar_navigation.html' %}
+
+        <div class="main-content-window">
+
+
+            {% include 'navbar.html' %}
+           
+
+            {% include 'main_page/chart_data.html' %}
+
+
+            {% include 'main_page/analysis_table.html' %}
+
+
+            {% include 'main_page/chatbot.html' %}
+
+
+        </div> 
+    </div>
+
+    <script>
+
+        base_url = CONFIG.BASE_URL;
+
+        let activeCharts = {};
+
+        function toggleTheme() {
+            const body = document.body;
+            const btn = document.getElementById('themeText');
+            body.classList.toggle('dark-mode');
+            btn.textContent = body.classList.contains('dark-mode') ? 'LIGHT MODE' : 'DARK MODE';
+            updateDashboardTelemetry();
+        }
+
+
+        window.onload = function() {
+            updateDashboardTelemetry();
+            renderRecentLogsTable();
+        };
+
+    </script>
+</body>
+</html>

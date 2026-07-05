@@ -1,0 +1,130 @@
+<div class="chatbot-sidebar-drawer" id="chatbotSidebarDrawer">
+    <div class="chat-sidebar-header">
+        <span>🛡️ Nova Incident Assistant</span>
+        <button class="close-sidebar-btn" onclick="toggleChatSidebar()">✕</button>
+    </div>
+    <div class="chat-display" id="chatWindowDisplay">
+        <div class="msg-bubble msg-bot">
+            Hello Operator. I am directly tied into <strong id="chatProfileUserLabel">this user</strong>'s specific firewall event thread context. Ask me anything about their connection patterns.
+        </div>
+    </div>
+    <div class="chat-input-bar">
+        <input type="text" id="chatInputQuery" class="chat-input" placeholder="Ask about this user's risk level..." onkeypress="handleChatKey(event)">
+        <button class="chat-send-btn" onclick="dispatchChatPrompt()">Send</button>
+    </div>
+</div>
+
+<button class="chat-launcher-btn" id="chatLauncherBtn" onclick="toggleChatSidebar()">💬</button>
+
+
+
+<script>
+
+    // TOGGLE DRAWER ENGINE
+    function toggleChatSidebar() {
+        const sidebar = document.getElementById('chatbotSidebarDrawer');
+        const workspace = document.getElementById('mainWorkspaceWindow');
+        const launcherBtn = document.getElementById('chatLauncherBtn'); // Grab the button
+        
+        sidebar.classList.toggle('open');
+        
+        if (sidebar.classList.contains('open')) {
+            // 1. Hide the floating button by sliding it out of view to the right
+            launcherBtn.style.right = "-100px";
+            
+            // 2. Adjust left workspace spacing if sidebar opens on wide layouts
+            if (window.innerWidth > 1200) {
+                workspace.style.marginRight = "380px";
+            }
+        } else {
+            // Bring the button back into view, and reset workspace margin
+            launcherBtn.style.right = "2rem";
+            workspace.style.marginRight = "0px";
+        }
+    }
+
+
+        function handleChatKey(e) { 
+            if (e.key === 'Enter') dispatchChatPrompt(); 
+        }
+
+
+    async function dispatchChatPrompt() {
+        const input = document.getElementById('chatInputQuery');
+        const chatWindow = document.getElementById('chatWindowDisplay');
+        const promptText = input.value.trim();
+        if (!promptText) return;
+
+        // 1. Render and Append User Bubble Layout
+        const userBubble = document.createElement('div');
+        userBubble.className = 'msg-bubble msg-user';
+        userBubble.textContent = promptText;
+        chatWindow.appendChild(userBubble);
+        input.value = '';
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+
+        // 2. Render and Append Bot Bubble Initial Layout
+        const botBubble = document.createElement('div');
+        botBubble.className = 'msg-bubble msg-bot';
+        botBubble.innerHTML = '<span style="font-style: italic; opacity: 0.7;">Thinking...</span>';
+        chatWindow.appendChild(botBubble);
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+
+        try {
+            const encodedPrompt = encodeURIComponent(promptText);
+            const session_id = 'static_guest_session';
+            // Note: global variable context 'userId' is assumed to be accessible here
+            const sseUrl = buildSseUrl(`/api/chat-user/${userId}`, { prompt: encodedPrompt, session_id: session_id });
+            
+            // Open the native EventSource pipeline stream connection 
+            const eventSource = new EventSource(sseUrl);
+            let fullResponse = "";
+
+            // 4. Trace and stream text token packages frame-by-frame
+            eventSource.addEventListener('message', function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.token) {
+                        // Instantly flush the "Thinking..." text on initial chunk return
+                        if (fullResponse === "") {
+                            botBubble.innerHTML = "";
+                        }
+                        
+                        fullResponse += data.token;
+                        
+                        // Render current markdown layout state cleanly inside your structural wrapper
+                        botBubble.innerHTML = `<div class="nova-content">${marked.parse(fullResponse)}</div>`;
+                        chatWindow.scrollTop = chatWindow.scrollHeight;
+                    }
+                } catch (parseErr) {
+                    console.error("Error decoding token context chunk:", parseErr);
+                }
+            });
+
+            // 5. Explicitly catch server closure signals to tear down connection states gracefully
+            eventSource.addEventListener('end', function() {
+                eventSource.close();
+            });
+
+            // 6. Monitor network fault handshake exceptions
+            eventSource.onerror = function(err) {
+                console.error("SSE Connection Engine Exception:", err);
+                // If the failure happened before a single chunk arrived, print an explicitly tracked failure frame
+                if (fullResponse === "") {
+                    botBubble.innerHTML = `<span style="color:var(--accent-danger);">⚠️ <strong>LCEL Pipeline Exception:</strong> Handshake failed or connection lost.</span>`;
+                }
+                eventSource.close();
+            };
+
+        } catch (err) {
+            // Core validation / synchronous fallback block error container matching your styles
+            botBubble.innerHTML = `<span style="color:var(--accent-danger);">⚠️ <strong>LCEL Pipeline Exception:</strong> ${err.message}</span>`;
+        }
+
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+
+
+
+</script>

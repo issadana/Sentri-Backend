@@ -1,0 +1,81 @@
+
+<div class="analytics-charts-row">
+    <div class="panel-card">
+        <div class="panel-title">📊 Mitigation Assertions</div>
+        <div style="height: 160px; position: relative;"><canvas id="actionsChart"></canvas></div>
+    </div>
+    <div class="panel-card">
+        <div class="panel-title">📦 Data Payload Weight Distribution</div>
+        <div style="height: 160px; position: relative;"><canvas id="payloadChart"></canvas></div>
+    </div>
+</div>
+
+
+<div class="hardware-summary-grid" id="hardwareSummaryGrid" style="display: none; margin-bottom: 1.5rem;">
+    <div class="panel-card hardware-card">
+        <div class="hardware-card-title">⚙️ Processor (CPU)</div>
+        <div class="hardware-card-value" id="hardwareCpuVal">0.0%</div>
+        <div class="hardware-progress-track">
+            <div class="hardware-progress-fill" id="hardwareCpuBar" style="width: 0%"></div>
+        </div>
+    </div>
+    <div class="panel-card hardware-card">
+        <div class="hardware-card-title">🧠 Volatile Memory (RAM)</div>
+        <div class="hardware-card-value" id="hardwareRamVal">0 / 0 MB</div>
+        <div class="hardware-progress-track">
+            <div class="hardware-progress-fill" id="hardwareRamBar" style="width: 0%"></div>
+        </div>
+    </div>
+    <div class="panel-card hardware-card">
+        <div class="hardware-card-title">🔋 Power Reserves</div>
+        <div class="hardware-card-value" id="hardwareBatteryVal">0%</div>
+        <div class="hardware-progress-track">
+            <div class="hardware-progress-fill" id="hardwareBatteryBar" style="width: 0%"></div>
+        </div>
+    </div>
+</div>
+
+
+<script>
+
+    function initCharts(metrics) {
+        const ctxActions = document.getElementById('actionsChart').getContext('2d');
+        window.actionsChartInstance = new Chart(ctxActions, {
+            type: 'doughnut',
+            data: {
+                labels: ['ALLOW', 'BLOCK'],
+                datasets: [{
+                    data: metrics.actions,
+                    backgroundColor: ['#16a34a', '#dc2626'],
+                    borderWidth: 0
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#64748b', font: { weight: 600 } } } } }
+        });
+
+        const ctxPayload = document.getElementById('payloadChart').getContext('2d');
+        window.payloadChartInstance = new Chart(ctxPayload, {
+            type: 'bar',
+            data: {
+                labels: metrics.size_labels,
+                datasets: [{
+                    label: 'Packet Density',
+                    data: metrics.sizes,
+                    backgroundColor: '#2563eb',
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { grid: { display: false }, ticks: { color: '#64748b' } },
+                    y: { grid: { color: () => Chart.defaults.color.includes('rgba') ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b' } }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+
+
+</script>

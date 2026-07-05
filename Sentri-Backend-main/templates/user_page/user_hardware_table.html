@@ -1,0 +1,88 @@
+<div class="panel-card" id="hardwareTablePanel" style="display: none;">
+    <div class="panel-title" style="justify-content: space-between;">
+        <span>⏱️ Chronological Hardware Diagnostics Trace</span>
+        <span style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 400;">Interval: 2 min snapshots</span>
+    </div>
+    <div class="table-scroll-frame" style="max-height: 280px;">
+        <table class="telemetry-table">
+            <thead>
+                <tr>
+                    <th>Snapshot Timestamp (UTC)</th>
+                    <th>CPU Burden</th>
+                    <th>RAM Allocation Space</th>
+                    <th>Battery Reserves</th>
+                </tr>
+            </thead>
+            <tbody id="hardwareLogsTableBody">
+                </tbody>
+        </table>
+    </div>
+</div>
+
+
+<script>
+
+    // ASYNCHRONOUS MOBILE TELEMETRY RENDERING PIPELINE
+    async function fetchAndRenderHardwareDiagnostics() {
+        try {
+            const hwResponse = await authFetch(`${base_url}/dashboard/api/hardware/${userId}`);
+            const hwData = await hwResponse.json();
+
+
+            if (!hwResponse.ok || hwData.status !== "success" || !hwData.latest) {
+                console.warn("No device monitoring records linked to node.");
+                return;
+            }
+
+            // Unhide the panel targets
+            document.getElementById('hardwareSummaryGrid').style.display = 'grid';
+            document.getElementById('hardwareTablePanel').style.display = 'block';
+
+            // A. Parse Core Real-Time Highlight Snapshot Cards
+            const latest = hwData.latest;
+            
+            // CPU Config
+            document.getElementById('hardwareCpuVal').textContent = `${latest.cpu_usage}%`;
+            const cpuBar = document.getElementById('hardwareCpuBar');
+            cpuBar.style.width = `${latest.cpu_usage}%`;
+            cpuBar.className = 'hardware-progress-fill ' + (latest.cpu_usage > 80 ? 'danger' : latest.cpu_usage > 50 ? 'warning' : '');
+
+            // RAM Config
+            const ramPercent = (latest.ram_used_mb / latest.ram_total_mb) * 100;
+            document.getElementById('hardwareRamVal').textContent = `${latest.ram_used_mb} / ${latest.ram_total_mb} MB`;
+            const ramBar = document.getElementById('hardwareRamBar');
+            ramBar.style.width = `${ramPercent}%`;
+            ramBar.className = 'hardware-progress-fill ' + (ramPercent > 85 ? 'danger' : ramPercent > 65 ? 'warning' : '');
+
+            // Battery Config
+            const batVal = latest.battery_level !== null ? latest.battery_level : 0;
+            document.getElementById('hardwareBatteryVal').textContent = latest.battery_level !== null ? `${batVal}%` : 'N/A';
+            const batBar = document.getElementById('hardwareBatteryBar');
+            batBar.style.width = `${batVal}%`;
+            batBar.className = 'hardware-progress-fill ' + (batVal < 20 ? 'danger' : batVal < 40 ? 'warning' : 'success');
+
+            // B. Parse Complete Historical Trajectory Logs
+            const hwTableBody = document.getElementById('hardwareLogsTableBody');
+            let hwHTML = '';
+            
+            hwData.history.forEach(snapshot => {
+                const snapRamPct = ((snapshot.ram_used_mb / snapshot.ram_total_mb) * 100).toFixed(0);
+                hwHTML += `
+                    <tr>
+                        <td style="color:var(--text-secondary); font-family: monospace;">${snapshot.recorded_at}</td>
+                        <td><strong style="color:${snapshot.cpu_usage > 75 ? 'var(--accent-danger)' : 'var(--text-primary)'}">${snapshot.cpu_usage}%</strong></td>
+                        <td>${snapshot.ram_used_mb} MB <span style="font-size:0.75rem; color:var(--text-secondary);">(${snapRamPct}%)</span></td>
+                        <td>${snapshot.battery_level !== null ? `${snapshot.battery_level}%` : '<span style="color:var(--text-secondary);">N/A</span>'}</td>
+                    </tr>
+                `;
+            });
+            hwTableBody.innerHTML = hwHTML;
+
+        } catch (err) {
+            console.error("Hardware analysis sub-fetch exception: ", err);
+        }
+    }
+
+
+
+</script>
