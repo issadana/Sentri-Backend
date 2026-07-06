@@ -113,6 +113,26 @@ class Prompts:
         )
 
     @staticmethod
+    def get_mobile_chat_prompt():
+        return ChatPromptTemplate.from_messages(
+            [
+                (
+                    "system",
+                    (
+                        "You are Sentri Mobile Assistant, a personal firewall security assistant. "
+                        "You have access to this user's own firewall telemetry below. "
+                        "Answer questions about their traffic, threats, blocked events, and patterns "
+                        "using only the provided data. Keep answers concise and helpful for a mobile user. "
+                        "If the data does not contain the answer, say so clearly — do not invent logs.\n\n"
+                        "--- USER FIREWALL DATA ---\n"
+                        "{firewall_context}"
+                    ),
+                ),
+                ("human", "{question}"),
+            ]
+        )
+
+    @staticmethod
     def get_analyze_fleet_prompt():
         return ChatPromptTemplate.from_messages(
             [

@@ -3,7 +3,8 @@ from datetime import timedelta
 
 from dotenv import load_dotenv
 
-load_dotenv()
+_base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__)))
+load_dotenv(os.path.join(_base_dir, ".env"), override=True)
 
 # Some managed providers (and older DO templates) hand out a "postgres://" URL,
 # but SQLAlchemy 2.x only accepts the "postgresql://" scheme. Normalize it so the
@@ -31,3 +32,7 @@ class Config:
 
     # Groq API key for the SSE chatbot (langchain_groq / ChatGroq).
     GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+
+    # Local Ollama instance for the NOVA dashboard (runs on the operator machine).
+    OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
+    OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")

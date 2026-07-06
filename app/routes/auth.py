@@ -165,10 +165,13 @@ def login():
     if not user:
         return jsonify({"error": "Invalid credentials"}), 401
 
-    password_correct = bcrypt.checkpw(
-        password.encode("utf-8"),
-        user.password.encode("utf-8")
-    )
+    try:
+        password_correct = bcrypt.checkpw(
+            password.encode("utf-8"),
+            user.password.encode("utf-8")
+        )
+    except ValueError:
+        return jsonify({"error": "Invalid credentials"}), 401
 
     if not password_correct:
         return jsonify({"error": "Invalid credentials"}), 401

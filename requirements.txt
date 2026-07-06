@@ -29,3 +29,5 @@ gunicorn==23.0.0
 gevent==24.11.1
 langchain-core==0.3.86
 langchain-groq==0.3.8
+langchain-ollama==0.3.3
+langchain-community==0.3.27

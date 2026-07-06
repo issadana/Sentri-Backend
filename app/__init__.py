@@ -1,3 +1,5 @@
+import os
+
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
@@ -13,57 +15,57 @@ sock = Sock()
 
 
 def create_app():
-    app = Flask(__name__)
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    app = Flask(
+        __name__,
+        template_folder=os.path.join(base_dir, "templates"),
+        static_folder=os.path.join(base_dir, "static"),
+    )
     CORS(app)
 
     swagger_config = {
         "headers": [],
         "specs": [
-          {
-            "endpoint": "apispec",
-            "route": "/apispec.json",
-            "rule_filter": lambda rule: True,
-            "model_filter": lambda tag: True,
-          }
-    ],
-    "static_url_path": "/flasgger_static",
-    "swagger_ui": True,
-    "specs_route": "/apidocs/"
-}
+            {
+                "endpoint": "apispec",
+                "route": "/apispec.json",
+                "rule_filter": lambda rule: True,
+                "model_filter": lambda tag: True,
+            }
+        ],
+        "static_url_path": "/flasgger_static",
+        "swagger_ui": True,
+        "specs_route": "/apidocs/",
+    }
 
     swagger_template = {
-       "swagger": "2.0",
-       "info": {
-        "title": "Neural Firewall API",
-        "description": "API documentation for Neural Firewall Backend",
-        "version": "1.0.0"
-    },
-    "securityDefinitions": {
-        "Bearer": {
-            "type": "apiKey",
-            "name": "Authorization",
-            "in": "header",
-            "description": "JWT token format: Bearer <your_token>"
-        }
+        "swagger": "2.0",
+        "info": {
+            "title": "Neural Firewall API",
+            "description": "API documentation for Neural Firewall Backend",
+            "version": "1.0.0",
+        },
+        "securityDefinitions": {
+            "Bearer": {
+                "type": "apiKey",
+                "name": "Authorization",
+                "in": "header",
+                "description": "JWT token format: Bearer <your_token>",
+            }
+        },
     }
-}
 
     Swagger(app, config=swagger_config, template=swagger_template)
-    
-    
+
     app.config.from_object("config.Config")
 
-    db.init_app(app) #Connect SQLAlchemy to Flask app
-    migrate.init_app(app, db) #Connect migration system
-    jwt.init_app(app) #Connect JWT system to Flask
-    sock.init_app(app) #Connect WebSocket support to Flask
+    db.init_app(app)
+    migrate.init_app(app, db)
+    jwt.init_app(app)
+    sock.init_app(app)
 
-    @app.route("/") 
-    def home():
-        return {"message": "Neural Firewall Backend Running"}
-    
     from app import models
-    # Register routes so Flask knows where to go when a URL is requested
+
     from app.routes.auth import auth_bp
     app.register_blueprint(auth_bp)
 
@@ -84,5 +86,18 @@ def create_app():
 
     from app.routes.chat import chat_bp
     app.register_blueprint(chat_bp)
+
+    from app.routes.dashboard_pages import dashboard_pages_bp
+    app.register_blueprint(dashboard_pages_bp)
+
+    from app.routes.dashboard_api import dashboard_api_bp
+    app.register_blueprint(dashboard_api_bp)
+
+    from app.routes.dashboard_chat import dashboard_chat_bp
+    app.register_blueprint(dashboard_chat_bp)
+
+    @app.route("/health")
+    def health():
+        return {"message": "Neural Firewall Backend Running"}
 
     return app

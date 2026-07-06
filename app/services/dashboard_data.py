@@ -135,6 +135,48 @@ def get_chart_data():
     }
 
 
+def get_mobile_chat_context(user_id):
+    """Build firewall log context for the mobile chatbot (scoped to one user)."""
+    user_data = get_user_chatbot_metrics(user_id)
+    if not user_data:
+        return None
+
+    logs = (
+        FirewallLog.query.filter_by(user_id=user_id)
+        .order_by(FirewallLog.id.desc())
+        .limit(50)
+        .all()
+    )
+
+    metrics = user_data["metrics"]
+    lines = [
+        f"Account: {user_data['username']} (user_id={user_id})",
+        (
+            f"Summary — total packets: {metrics['total_packets']}, "
+            f"blocked: {metrics['blocked_packets']}, "
+            f"highest threat score: {float(metrics['max_probability'] or 0) * 100:.1f}%, "
+            f"most frequent threat: {metrics['top_threat_type']}, "
+            f"unique destination ports: {metrics['unique_destinations']}"
+        ),
+        "",
+        "Recent firewall events (newest first):",
+    ]
+
+    if not logs:
+        lines.append("No firewall logs on record for this account.")
+    else:
+        for log in logs:
+            row = serialize_log_row(log)
+            prob_pct = f"{float(row['max_attack_prob']) * 100:.1f}%"
+            lines.append(
+                f"- Log {row['id']}: {row['src_ip']} -> {row['dst_ip']} | "
+                f"Model: {row['selected_model']} | Threat: {row['top_threat_type']} ({prob_pct}) | "
+                f"Action: {row['action_taken']}"
+            )
+
+    return "\n".join(lines)
+
+
 def get_dashboard_chatbot_context():
     logs = FirewallLog.query.order_by(FirewallLog.id.desc()).limit(100).all()
     return [serialize_log_row(log) for log in logs]

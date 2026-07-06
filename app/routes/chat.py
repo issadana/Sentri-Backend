@@ -1,15 +1,17 @@
 import os
 
 from flask import Blueprint, request, jsonify, Response, stream_with_context
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from langchain_groq import ChatGroq
-from langchain_core.prompts import ChatPromptTemplate
 
+from app.services import dashboard_data as data
+from app.utils.prompts import Prompts
 from app.utils.sse_helper import SSEHelper
 
 
 chat_bp = Blueprint("chat", __name__, url_prefix="/api")
 
+prompts = Prompts()
 
 # Lazily build the Groq chat model once per process. Instantiating on first use
 # (rather than at import time) keeps the app importable even if the API key is
@@ -39,6 +41,9 @@ def _get_mobile_llm() -> ChatGroq:
 def mobile_chat_func():
     """
 Stream a chatbot reply over Server-Sent Events.
+
+Injects the authenticated user's recent firewall_logs as context so the
+assistant can answer questions about their own traffic and threats.
 
 Stateless: each request is answered on its own with no conversation memory.
 ---
@@ -73,18 +78,21 @@ responses:
         return jsonify({"status": "error", "message": "Prompt cannot be empty."}), 400
 
     try:
-        mobile_prompt = ChatPromptTemplate.from_messages([
-            ("system", "You are an AI assistant."),
-            ("human", "{text}"),
-        ])
+        current_user_id = int(get_jwt_identity())
+        firewall_context = data.get_mobile_chat_context(current_user_id)
+        if firewall_context is None:
+            return jsonify({"status": "error", "message": "User not found."}), 404
 
-        mobile_chain = mobile_prompt | _get_mobile_llm()
+        mobile_chain = prompts.get_mobile_chat_prompt() | _get_mobile_llm()
 
-        mobile_chat_chain_input = {"text": user_prompt}
+        chain_input = {
+            "firewall_context": firewall_context,
+            "question": user_prompt,
+        }
 
         return Response(
             stream_with_context(
-                SSEHelper.sse_yield_data(mobile_chain, mobile_chat_chain_input, config=None)
+                SSEHelper.sse_yield_data(mobile_chain, chain_input, config=None)
             ),
             mimetype="text/event-stream",
             headers={
