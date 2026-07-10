@@ -38,8 +38,14 @@ class BlacklistEntry(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     ip = db.Column(db.String(45), nullable=False)
     reason = db.Column(db.String(20), default="manual")
-    bf_score = db.Column(db.Float)
-    dos_score = db.Column(db.Float)
+
+    # Which model triggered the block, its winning score, and the full
+    # per-model score object (keyed by the 5 model ids). All nullable —
+    # manual blocks carry no scores.
+    selected_model = db.Column(db.String(100))
+    selected_score = db.Column(db.Float)           # [0, 1]
+    all_model_scores = db.Column(JSONB)            # {"bruteForce": 0.1, ...}
+
     notes = db.Column(db.String(255))
     added_at = db.Column(db.DateTime, default=datetime.utcnow)
      #Prevent duplicates.

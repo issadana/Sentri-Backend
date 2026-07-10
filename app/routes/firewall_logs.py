@@ -249,15 +249,15 @@ def _auto_blacklist(user_id, logs):
         if exists:
             continue
 
-        bf_score, dos_score = _extract_bf_dos(log.all_model_scores)
         reason = (log.threat_type or log.selected_model or "auto_ml")[:20]
 
         db.session.add(BlacklistEntry(
             user_id=int(user_id),
             ip=ip,
             reason=reason,
-            bf_score=bf_score,
-            dos_score=dos_score,
+            selected_model=log.selected_model,
+            selected_score=log.selected_score,
+            all_model_scores=log.all_model_scores,
             notes="Auto-added from firewall log",
         ))
         payloads.append({
@@ -265,8 +265,9 @@ def _auto_blacklist(user_id, logs):
             "action": "added",
             "ip": ip,
             "reason": reason,
-            "bf_score": bf_score,
-            "dos_score": dos_score,
+            "selected_model": log.selected_model,
+            "selected_score": log.selected_score,
+            "all_model_scores": log.all_model_scores,
         })
 
     return payloads

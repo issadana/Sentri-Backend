@@ -37,8 +37,9 @@ def get_blacklist():
             "id": entry.id,
             "ip": entry.ip,
             "reason": entry.reason,
-            "bf_score": entry.bf_score,
-            "dos_score": entry.dos_score,
+            "selected_model": entry.selected_model,
+            "selected_score": entry.selected_score,
+            "all_model_scores": entry.all_model_scores,
             "notes": entry.notes,
             "added_at": entry.added_at.isoformat()
         })
@@ -73,6 +74,20 @@ def add_blacklist_entry():
             reason:
               type: string
               example: manual
+            selected_model:
+              type: string
+              example: dosHulk
+            selected_score:
+              type: number
+              example: 0.94
+            all_model_scores:
+              type: object
+              example:
+                bruteForce: 0.02
+                dos: 0.11
+                dosHulk: 0.94
+                loic: 0.30
+                hoic: 0.18
             notes:
               type: string
               example: Suspicious traffic
@@ -89,8 +104,9 @@ def add_blacklist_entry():
 
     ip = data.get("ip")
     reason = data.get("reason", "manual")
-    bf_score = data.get("bf_score")
-    dos_score = data.get("dos_score")
+    selected_model = data.get("selected_model")
+    selected_score = data.get("selected_score")
+    all_model_scores = data.get("all_model_scores")
     notes = data.get("notes")
 
     if notes and len(notes) > 255:
@@ -98,6 +114,28 @@ def add_blacklist_entry():
 
     if reason and len(reason) > 20:
        return jsonify({"error": "reason too long"}), 400
+
+    if selected_model and len(selected_model) > 100:
+       return jsonify({"error": "selected_model too long"}), 400
+
+    if selected_score is not None:
+        try:
+            selected_score = float(selected_score)
+        except (TypeError, ValueError):
+            return jsonify({"error": "selected_score must be a number"}), 400
+        if not 0.0 <= selected_score <= 1.0:
+            return jsonify({"error": "selected_score must be between 0 and 1"}), 400
+
+    if all_model_scores is not None:
+        if not isinstance(all_model_scores, dict):
+            return jsonify({"error": "all_model_scores must be an object"}), 400
+        for key, raw in all_model_scores.items():
+            try:
+                val = float(raw)
+            except (TypeError, ValueError):
+                return jsonify({"error": "all_model_scores values must be numbers"}), 400
+            if not 0.0 <= val <= 1.0:
+                return jsonify({"error": "all_model_scores values must be between 0 and 1"}), 400
 
     if not ip:
         return jsonify({"error": "IP is required"}), 400
@@ -119,8 +157,9 @@ def add_blacklist_entry():
         user_id=current_user_id,
         ip=ip,
         reason=reason,
-        bf_score=bf_score,
-        dos_score=dos_score,
+        selected_model=selected_model,
+        selected_score=selected_score,
+        all_model_scores=all_model_scores,
         notes=notes
     )
 
@@ -133,8 +172,9 @@ def add_blacklist_entry():
             "id": new_entry.id,
             "ip": new_entry.ip,
             "reason": new_entry.reason,
-            "bf_score": new_entry.bf_score,
-            "dos_score": new_entry.dos_score,
+            "selected_model": new_entry.selected_model,
+            "selected_score": new_entry.selected_score,
+            "all_model_scores": new_entry.all_model_scores,
             "notes": new_entry.notes,
             "added_at": new_entry.added_at.isoformat()
         }
