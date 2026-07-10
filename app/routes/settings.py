@@ -41,6 +41,9 @@ def get_settings():
         "syn_flood_per_sec": settings.syn_flood_per_sec,
         "bf_model_enabled": settings.bf_model_enabled,
         "dos_model_enabled": settings.dos_model_enabled,
+        "hulk_model_enabled": settings.hulk_model_enabled,
+        "loic_model_enabled": settings.loic_model_enabled,
+        "hoic_model_enabled": settings.hoic_model_enabled,
         "max_log_entries": settings.max_log_entries,
         "log_system_traffic": settings.log_system_traffic
     }), 200
@@ -88,6 +91,15 @@ def update_settings():
               type: boolean
               example: true
             dos_model_enabled:
+              type: boolean
+              example: true
+            hulk_model_enabled:
+              type: boolean
+              example: true
+            loic_model_enabled:
+              type: boolean
+              example: true
+            hoic_model_enabled:
               type: boolean
               example: true
             max_log_entries:
@@ -182,6 +194,21 @@ def update_settings():
     settings.dos_model_enabled = data.get(
         "dos_model_enabled",
         settings.dos_model_enabled
+    )
+
+    settings.hulk_model_enabled = data.get(
+        "hulk_model_enabled",
+        settings.hulk_model_enabled
+    )
+
+    settings.loic_model_enabled = data.get(
+        "loic_model_enabled",
+        settings.loic_model_enabled
+    )
+
+    settings.hoic_model_enabled = data.get(
+        "hoic_model_enabled",
+        settings.hoic_model_enabled
     )
 
     settings.max_log_entries = data.get(

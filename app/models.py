@@ -92,6 +92,9 @@ class UserSettings(db.Model):
 
     bf_model_enabled = db.Column(db.Boolean, default=True)
     dos_model_enabled = db.Column(db.Boolean, default=True)
+    hulk_model_enabled = db.Column(db.Boolean, default=True)
+    loic_model_enabled = db.Column(db.Boolean, default=True)
+    hoic_model_enabled = db.Column(db.Boolean, default=True)
 
     max_log_entries = db.Column(db.Integer, default=200)
     log_system_traffic = db.Column(db.Boolean, default=False)
