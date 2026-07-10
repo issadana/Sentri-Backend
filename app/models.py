@@ -38,8 +38,14 @@ class BlacklistEntry(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     ip = db.Column(db.String(45), nullable=False)
     reason = db.Column(db.String(20), default="manual")
-    bf_score = db.Column(db.Float)
-    dos_score = db.Column(db.Float)
+
+    # Which model triggered the block, its winning score, and the full
+    # per-model score object (keyed by the 5 model ids). All nullable —
+    # manual blocks carry no scores.
+    selected_model = db.Column(db.String(100))
+    selected_score = db.Column(db.Float)           # [0, 1]
+    all_model_scores = db.Column(JSONB)            # {"bruteForce": 0.1, ...}
+
     notes = db.Column(db.String(255))
     added_at = db.Column(db.DateTime, default=datetime.utcnow)
      #Prevent duplicates.
@@ -55,18 +61,24 @@ class UnknownEvent(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
 
     src_ip = db.Column(db.String(45))
+    dst_ip = db.Column(db.String(45))
     src_port = db.Column(db.Integer)
     dst_port = db.Column(db.Integer)
     protocol = db.Column(db.Integer)
     size_bytes = db.Column(db.Integer)
 
-    flow_iat_mean = db.Column(db.Float)
-    tot_fwd_pkts = db.Column(db.Integer)
-    pkt_size_avg = db.Column(db.Float)
-    flow_duration = db.Column(db.Float)
+    # Network-flow features, extracted from the triggering firewall log
+    # (mirrors the firewall_logs schema).
+    duration = db.Column(db.Float)                 # flow duration in seconds
+    fwd_pkts = db.Column(db.Integer)               # forward-direction packet count
+    bwd_pkts = db.Column(db.Integer)               # backward-direction packet count
+    fwd_rate = db.Column(db.Float)                 # forward packet rate (packets/sec)
 
-    bf_score = db.Column(db.Float)
-    dos_score = db.Column(db.Float)
+    # Model outputs captured from the triggering firewall log.
+    selected_model = db.Column(db.String(100))     # which model produced the score
+    selected_score = db.Column(db.Float)           # [0, 1] — the ambiguous score
+    all_model_scores = db.Column(JSONB)            # {"bruteForce": 0.1, ...}
+    threat_type = db.Column(db.String(50))
 
     status = db.Column(db.String(20), default="pending")
     label = db.Column(db.String(20))
@@ -92,6 +104,9 @@ class UserSettings(db.Model):
 
     bf_model_enabled = db.Column(db.Boolean, default=True)
     dos_model_enabled = db.Column(db.Boolean, default=True)
+    hulk_model_enabled = db.Column(db.Boolean, default=True)
+    loic_model_enabled = db.Column(db.Boolean, default=True)
+    hoic_model_enabled = db.Column(db.Boolean, default=True)
 
     max_log_entries = db.Column(db.Integer, default=200)
     log_system_traffic = db.Column(db.Boolean, default=False)

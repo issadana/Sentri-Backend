@@ -128,24 +128,6 @@ def _parse_created_at(value):
     return datetime.now(timezone.utc)
 
 
-def _extract_bf_dos(scores):
-    """Pull brute-force / DoS scores out of an all_model_scores object."""
-    bf = 0.0
-    dos = 0.0
-    if isinstance(scores, dict):
-        for key, raw in scores.items():
-            try:
-                val = float(raw)
-            except (TypeError, ValueError):
-                continue
-            name = str(key).lower()
-            if "bf" in name or "brute" in name:
-                bf = max(bf, val)
-            elif "dos" in name:
-                dos = max(dos, val)
-    return bf, dos
-
-
 def _build_log(user_id, data):
     """
     Validate one wire-format log object and return an unsaved FirewallLog.
@@ -249,15 +231,15 @@ def _auto_blacklist(user_id, logs):
         if exists:
             continue
 
-        bf_score, dos_score = _extract_bf_dos(log.all_model_scores)
         reason = (log.threat_type or log.selected_model or "auto_ml")[:20]
 
         db.session.add(BlacklistEntry(
             user_id=int(user_id),
             ip=ip,
             reason=reason,
-            bf_score=bf_score,
-            dos_score=dos_score,
+            selected_model=log.selected_model,
+            selected_score=log.selected_score,
+            all_model_scores=log.all_model_scores,
             notes="Auto-added from firewall log",
         ))
         payloads.append({
@@ -265,8 +247,9 @@ def _auto_blacklist(user_id, logs):
             "action": "added",
             "ip": ip,
             "reason": reason,
-            "bf_score": bf_score,
-            "dos_score": dos_score,
+            "selected_model": log.selected_model,
+            "selected_score": log.selected_score,
+            "all_model_scores": log.all_model_scores,
         })
 
     return payloads
@@ -290,16 +273,22 @@ def _record_unknown_events(user_id, logs):
         if score is None:
             continue
         if warn < score <= block:
-            bf_score, dos_score = _extract_bf_dos(log.all_model_scores)
             db.session.add(UnknownEvent(
                 user_id=int(user_id),
                 src_ip=log.src_ip,
+                dst_ip=log.dst_ip,
                 src_port=log.src_port,
                 dst_port=log.dst_port,
                 protocol=log.protocol,
                 size_bytes=log.size_bytes,
-                bf_score=bf_score,
-                dos_score=dos_score,
+                duration=log.duration,
+                fwd_pkts=log.fwd_pkts,
+                bwd_pkts=log.bwd_pkts,
+                fwd_rate=log.fwd_rate,
+                selected_model=log.selected_model,
+                selected_score=log.selected_score,
+                all_model_scores=log.all_model_scores,
+                threat_type=log.threat_type,
                 status="pending",
             ))
 
