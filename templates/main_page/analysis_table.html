@@ -1,0 +1,112 @@
+<h2 style="font-size: 1.2rem; margin-top: 1rem; font-weight: 600;">Recent Firewall Network Events</h2>
+<table class="log-table">
+    <thead>
+        <tr>
+            <th>Source IP</th>
+            <th>Destination IP</th>
+            <th>AI Model Used</th>
+            <th>Attack Probability</th>
+            <th>Action Taken</th>
+            <th style="text-align: center;">AI Diagnostics</th>
+        </tr>
+    </thead>
+    <tbody id="logTableBody">
+        <tr><td colspan="6" style="text-align:center; color:var(--text-secondary);">Initializing client interface data threads...</td></tr>
+    </tbody>
+</table>
+
+
+<div class="modal-overlay" id="aiModal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h2>🔍 Nova Forensic Analysis</h2>
+            <button class="modal-close-x" onclick="closeLogModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="modalOutputContainer"></div>
+    </div>
+</div>
+
+
+<script>
+
+async function renderRecentLogsTable() {
+    const tableBody = document.getElementById('logTableBody');
+    try {
+        const response = await authFetch(`${base_url}/dashboard/api/logs`);
+        const result = await response.json();
+        if (!response.ok || result.status !== "success") throw new Error(result.message);
+
+        const logs = result.data;
+        if (logs.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center;">No log data matches your query.</td></tr>`;
+            return;
+        }
+
+        let htmlContent = '';
+        logs.forEach(log => {
+            const badgeType = log.action_taken === 'BLOCK' ? 'badge-block' : 'badge-allow';
+            const probabilityValue = (log.max_attack_prob * 100).toFixed(1);
+
+            htmlContent += `
+                <tr>
+                    <td>${log.src_ip}</td>
+                    <td>${log.dst_ip}</td>
+                    <td><strong>${log.selected_model}</strong></td>
+                    <td>${probabilityValue}%</td>
+                    <td><span class="badge ${badgeType}">${log.action_taken}</span></td>
+                    <td style="text-align: center; width: 130px;">
+                        <button class="action-ai-btn" onclick="requestAiAnalysis(${log.id})">✨ Analyze</button>
+                    </td>
+                </tr>
+            `;
+        });
+        tableBody.innerHTML = htmlContent;
+    } catch (err) {
+        tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--accent-danger);">Handshake Error: ${err.message}</td></tr>`;
+    }
+}
+
+async function requestAiAnalysis(logId) {
+    const overlay = document.getElementById('aiModal');
+    const container = document.getElementById('modalOutputContainer');
+    const modalTitle = overlay.querySelector('.modal-header h2');
+    
+    if (modalTitle) {
+        modalTitle.innerHTML = `🔍 Nova Forensic Analysis`;
+    }
+    
+    overlay.classList.add('active');
+    
+    container.innerHTML = `
+        <div class="analysis-loader-container">
+            <div class="analysis-spinner"></div>
+            <p style="color:var(--text-secondary); font-size:0.9rem; font-weight:600;">⚙️ Consulting internal security model analytics...</p>
+        </div>
+    `;
+
+    try {
+        const response = await authFetch(`${base_url}/api/analyze-log/${logId}`, { method: 'POST' });
+        const data = await response.json();
+        if (!response.ok || data.status !== "success") throw new Error(data.message);
+
+        container.innerHTML = `
+            <div class="nova-content">
+                ${marked.parse(data.analysis)}
+            </div>
+        `;
+    } catch (err) {
+        container.innerHTML = `
+            <div class="analysis-error-block">
+                ⚠️ <strong>Analysis Exception:</strong> ${err.message}
+            </div>
+        `;
+    }
+}
+
+
+function closeLogModal() { 
+    document.getElementById('aiModal').classList.remove('active'); 
+}
+
+</script>
+

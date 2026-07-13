@@ -1,0 +1,143 @@
+
+<div class="panel-card" style="margin-bottom: 1.5rem;">
+    <div class="panel-title">📑 Transaction Logs Stream (Filtered)</div>
+    <div class="table-scroll-frame">
+        <table class="telemetry-table">
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Target Destination</th>
+                    <th>Size</th>
+                    <th>Action</th>
+                    <th>Action Execution</th>
+                </tr>
+            </thead>
+            <tbody id="userLogsTableBody">
+                <tr>
+                    <td colspan="5" style="text-align: center; color: var(--text-secondary); padding: 3rem;">
+                        Querying network data blocks...
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+
+
+<div id="analysisModalOverlay" class="analysis-modal-overlay" style="display: none;">
+    <div class="analysis-modal-card">
+        <div class="analysis-modal-header">
+            <h3 id="analysisModalTitle">🔍 Nova Forensic Analysis</h3>
+            <button class="analysis-modal-close" onclick="closeAnalysisModal()">&times;</button>
+        </div>
+        <div id="analysisModalBody" class="analysis-modal-body">
+            
+        </div>
+    </div>
+</div>
+
+
+<script>
+
+
+    // ASYNCHRONOUS COMPONENT RENDERING MATRIX
+    async function fetchAndRenderProfileWorkstation() {
+        try {
+            // 1. Fetch main firewall network log streams
+            const response = await authFetch(`${base_url}/dashboard/api/logs/user/${userId}`);
+            const resData = await response.json();
+            
+            if (!response.ok || resData.status !== "success") throw new Error(resData.message);
+
+            // Render Left Side Filtered Log Table Rows
+            const tableBody = document.getElementById('userLogsTableBody');
+            if (resData.logs.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:3rem; color:var(--text-secondary);">No packet transaction rows mapped to this user account profile.</td></tr>`;
+            } else {
+                let tableHTML = '';
+                resData.logs.forEach(log => {
+                    tableHTML += `
+                        <tr>
+                            <td style="color:var(--text-secondary); white-space:nowrap;">${log.timestamp}</td>
+                            <td><code>${log.dst_ip}</code></td>
+                            <td>${log.packet_size} B</td>
+                            <td><span class="badge badge-${log.action_taken.toLowerCase()}">${log.action_taken}</span></td>
+                            <td><button class="btn-analyze" onclick="triggerRowAnalysis(${log.id})">Analyze</button></td>
+                        </tr>
+                    `;
+                });
+                tableBody.innerHTML = tableHTML;
+            }
+
+            // Initialize Side-by-Side Scoped Charts
+            initCharts(resData.metrics);
+
+            // 2. NEW LAYER: Execute Unified Hardware Metrics Sub-Fetch
+            await fetchAndRenderHardwareDiagnostics();
+
+        } catch (err) {
+            console.error("Profile compilation error: ", err);
+        }
+    }
+
+
+
+
+
+    async function triggerRowAnalysis(logId) {
+        const modalOverlay = document.getElementById('analysisModalOverlay');
+        const modalBody = document.getElementById('analysisModalBody');
+        const modalTitle = document.getElementById('analysisModalTitle');
+
+        // 1. Reset title and force open the center popup modal overlay
+        // modalTitle.innerHTML = `✦ Nova Forensic Analysis — Row #${logId}`;
+        modalTitle.innerHTML = `🔍 Nova Forensic Analysis`;
+        modalOverlay.style.display = 'flex';
+
+        // 2. Inject a clean technical loader status inside the modal body
+        modalBody.innerHTML = `
+            <div class="analysis-loader-container">
+                <div class="analysis-spinner"></div>
+                <p>⚙️ Consulting internal security model analytics...</p>
+            </div>
+        `;
+
+        try {
+            // 3. Dispatch the request to your backend endpoint
+            const response = await authFetch(`${base_url}/api/analyze_user_log/${logId}`, {
+                method: 'POST'
+            });
+            
+            const resData = await response.json();
+            
+            if (!response.ok || resData.status !== "success") {
+                throw new Error(resData.message || "Failed to finalize packet forensic trace.");
+            }
+
+            // 4. Render the markdown executive summary directly using marked.parse
+            // Wrapped inside 'nova-content' to apply your dashboard markdown spacing rules
+            modalBody.innerHTML = `
+                <div class="nova-content">
+                    ${marked.parse(resData.analysis)}
+                </div>
+            `;
+
+        } catch (err) {
+            // 5. Handle any pipeline failures cleanly within the popup window
+            modalBody.innerHTML = `
+                <div class="analysis-error-block">
+                    ⚠️ <strong>Analysis Exception:</strong> ${err.message}
+                </div>
+            `;
+        }
+    }
+
+    function closeAnalysisModal() {
+        document.getElementById('analysisModalOverlay').style.display = 'none';
+    }
+
+
+
+
+</script>

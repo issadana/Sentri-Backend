@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SOC Dashboard - Unknown Events</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --bg-canvas: #f8fafc;
+            --bg-surface: #ffffff;
+            --border-subtle: #e2e8f0;
+            --text-primary: #0f172a;
+            --text-secondary: #64748b;
+            --accent-blue: #2563eb;
+            --accent-danger: #dc2626;
+            --accent-warning: #ea580c;
+            --accent-success: #16a34a;
+            --navbar-bg: #ffffff;
+            --btn-toggle-bg: #f1f5f9;
+        }
+        body.dark-mode {
+            --bg-canvas: #090d16;
+            --bg-surface: #111827;
+            --border-subtle: #1f293d;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-blue: #38bdf8;
+            --accent-danger: #f43f5e;
+            --accent-warning: #fb923c;
+            --accent-success: #10b981;
+            --navbar-bg: #111827;
+            --btn-toggle-bg: #1f2937;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background-color: var(--bg-canvas);
+            color: var(--text-primary);
+            padding: 2rem;
+            overflow: hidden;
+        }
+        .app-container { display: flex; min-height: 100vh; width: 100vw; margin: -2rem; }
+        .main-content-window { flex: 1; padding: 2rem; overflow-y: auto; height: 100vh; }
+        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; gap: 1rem; flex-wrap: wrap; }
+        .page-title { font-size: 1.5rem; font-weight: 700; }
+        .page-subtitle { color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.25rem; }
+        .user-pills { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1.5rem; }
+        .user-pill {
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-surface);
+            color: var(--text-primary);
+            padding: 0.55rem 1rem;
+            border-radius: 999px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .user-pill.active { background: var(--accent-blue); color: #fff; border-color: var(--accent-blue); }
+        .user-pill .count { opacity: 0.8; font-weight: 500; }
+        .panel-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: 1.25rem;
+        }
+        .panel-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+        .events-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        .events-table th, .events-table td {
+            padding: 0.75rem 0.9rem;
+            border-bottom: 1px solid var(--border-subtle);
+            text-align: left;
+        }
+        .events-table th {
+            background: var(--btn-toggle-bg);
+            color: var(--text-secondary);
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+        .table-scroll { max-height: 520px; overflow: auto; border: 1px solid var(--border-subtle); border-radius: 8px; }
+        .badge {
+            display: inline-block;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 0.15rem 0.45rem;
+            border-radius: 4px;
+        }
+        .badge-pending { background: rgba(234, 88, 12, 0.12); color: var(--accent-warning); }
+        .btn-analyze, .btn-analyze-user {
+            background: var(--accent-blue);
+            color: #fff;
+            border: none;
+            padding: 0.45rem 0.85rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+        .btn-analyze-user { padding: 0.6rem 1rem; }
+        .btn-blacklist-add {
+            background: var(--accent-danger);
+            color: #fff;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 1rem;
+            line-height: 1;
+            cursor: pointer;
+            margin-left: 0.5rem;
+            vertical-align: middle;
+        }
+        .btn-blacklist-add:hover { opacity: 0.9; }
+        .ip-cell { display: flex; align-items: center; gap: 0.25rem; }
+        .blacklist-form { display: flex; flex-direction: column; gap: 1rem; }
+        .blacklist-option {
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            padding: 0.85rem 1rem;
+            cursor: pointer;
+        }
+        .blacklist-option.selected { border-color: var(--accent-blue); background: rgba(37, 99, 235, 0.06); }
+        .blacklist-option label { display: flex; align-items: flex-start; gap: 0.6rem; cursor: pointer; font-weight: 600; }
+        .blacklist-option .hint { color: var(--text-secondary); font-size: 0.82rem; font-weight: 400; margin-top: 0.35rem; margin-left: 1.45rem; }
+        .blacklist-user-select {
+            margin-top: 0.6rem;
+            margin-left: 1.45rem;
+            width: calc(100% - 1.45rem);
+            padding: 0.5rem 0.65rem;
+            border: 1px solid var(--border-subtle);
+            border-radius: 6px;
+            background: var(--bg-canvas);
+            color: var(--text-primary);
+        }
+        .blacklist-notes {
+            width: 100%;
+            min-height: 72px;
+            padding: 0.65rem;
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            background: var(--bg-canvas);
+            color: var(--text-primary);
+            resize: vertical;
+            font-family: inherit;
+        }
+        .blacklist-actions { display: flex; justify-content: flex-end; gap: 0.75rem; }
+        .btn-secondary {
+            background: var(--btn-toggle-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--border-subtle);
+            padding: 0.55rem 1rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-primary {
+            background: var(--accent-danger);
+            color: #fff;
+            border: none;
+            padding: 0.55rem 1rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+        .blacklist-ip-display {
+            font-size: 1.05rem;
+            font-weight: 700;
+            padding: 0.65rem 0.85rem;
+            background: var(--btn-toggle-bg);
+            border-radius: 8px;
+            border: 1px solid var(--border-subtle);
+        }
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.55);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-card {
+            background: #ffffff;
+            border: 1px solid #e8eef5;
+            border-radius: 10px;
+            width: min(720px, 100%);
+            max-height: 85vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 18px 48px rgba(15, 23, 42, 0.14);
+        }
+        body.dark-mode .modal-card {
+            background: var(--bg-surface);
+            border-color: var(--border-subtle);
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.1rem 1.4rem;
+            border-bottom: 1px solid #edf2f7;
+            background: #ffffff;
+        }
+        body.dark-mode .modal-header {
+            background: var(--bg-surface);
+            border-bottom-color: var(--border-subtle);
+        }
+        .modal-header h2 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #1e293b;
+            letter-spacing: -0.01em;
+        }
+        body.dark-mode .modal-header h2 { color: var(--text-primary); }
+        .modal-body {
+            padding: 1.35rem 1.4rem 1.6rem;
+            overflow-y: auto;
+            background: #ffffff;
+        }
+        body.dark-mode .modal-body { background: var(--bg-surface); }
+        .modal-close-x {
+            background: none;
+            border: none;
+            font-size: 1.35rem;
+            line-height: 1;
+            cursor: pointer;
+            color: #94a3b8;
+            padding: 0.15rem 0.35rem;
+            border-radius: 6px;
+        }
+        .modal-close-x:hover { color: #64748b; background: #f1f5f9; }
+        .analysis-loader-container { text-align: center; padding: 2rem; color: var(--text-secondary); }
+        .analysis-spinner {
+            width: 36px; height: 36px;
+            border: 3px solid var(--border-subtle);
+            border-top-color: var(--accent-blue);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Batch analysis (Analyze All User Events) — blue section bars */
+        .nova-content {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            font-size: 0.95rem;
+            line-height: 1.7;
+            color: #475569;
+        }
+        .nova-content > *:first-child { margin-top: 0; }
+        .nova-content--batch h1,
+        .nova-content--batch h2,
+        .nova-content--batch h3,
+        .nova-content--batch h4 {
+            background: #eef4fb;
+            border-left: 4px solid #2563eb;
+            padding: 0.72rem 1rem;
+            margin: 1.4rem 0 0.9rem;
+            border-radius: 0 6px 6px 0;
+            font-size: 0.98rem;
+            font-weight: 700;
+            color: #1e293b;
+            line-height: 1.35;
+            letter-spacing: -0.01em;
+        }
+        .nova-content--batch h1:first-child,
+        .nova-content--batch h2:first-child,
+        .nova-content--batch h3:first-child,
+        .nova-content--batch h4:first-child {
+            margin-top: 0;
+        }
+        body.dark-mode .nova-content { color: var(--text-secondary); }
+        body.dark-mode .nova-content--batch h1,
+        body.dark-mode .nova-content--batch h2,
+        body.dark-mode .nova-content--batch h3,
+        body.dark-mode .nova-content--batch h4 {
+            background: rgba(56, 189, 248, 0.12);
+            border-left-color: var(--accent-blue);
+            color: var(--text-primary);
+        }
+        .nova-content p {
+            margin: 0 0 0.8rem;
+            color: #475569;
+        }
+        body.dark-mode .nova-content p { color: var(--text-secondary); }
+        .nova-content ul,
+        .nova-content ol {
+            margin: 0.25rem 0 1rem;
+            padding-left: 1.35rem;
+        }
+        .nova-content li {
+            margin-bottom: 0.55rem;
+            padding-left: 0.2rem;
+            color: #475569;
+        }
+        body.dark-mode .nova-content li { color: var(--text-secondary); }
+        .nova-content--batch ul li::marker { color: #2563eb; }
+        body.dark-mode .nova-content--batch ul li::marker { color: var(--accent-blue); }
+        .nova-content strong {
+            color: #1e293b;
+            font-weight: 700;
+        }
+        body.dark-mode .nova-content strong { color: var(--text-primary); }
+        .nova-content code {
+            font-size: 0.88em;
+            background: #f1f5f9;
+            padding: 0.1rem 0.35rem;
+            border-radius: 4px;
+        }
+
+        /* Single-row Analyze — clean numbered fact sheet */
+        .analysis-modal--single .modal-header {
+            background: #eef2f7;
+            border-bottom-color: #e4e9f0;
+        }
+        body.dark-mode .analysis-modal--single .modal-header {
+            background: #1a2332;
+            border-bottom-color: var(--border-subtle);
+        }
+        .nova-content--single {
+            font-size: 0.98rem;
+            line-height: 1.75;
+            color: #4b5563;
+            padding: 0.15rem 0.1rem;
+        }
+        .nova-content--single p {
+            margin: 0 0 1.15rem;
+            color: #4b5563;
+        }
+        .nova-content--single p:last-child {
+            margin-top: 1.15rem;
+            margin-bottom: 0;
+        }
+        .nova-content--single ol {
+            list-style: none;
+            margin: 0.35rem 0 0.5rem;
+            padding: 0;
+        }
+        .nova-content--single ol li {
+            margin: 0 0 0.95rem;
+            padding: 0;
+            color: #4b5563;
+            line-height: 1.65;
+        }
+        .nova-content--single ul {
+            list-style: none;
+            margin: 0.35rem 0 0.5rem;
+            padding: 0;
+        }
+        .nova-content--single ul li {
+            margin: 0 0 0.95rem;
+            padding: 0;
+            color: #4b5563;
+            line-height: 1.65;
+        }
+        .nova-content--single h1,
+        .nova-content--single h2,
+        .nova-content--single h3,
+        .nova-content--single h4 {
+            display: none;
+        }
+        .nova-content--single strong {
+            color: #111827;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        {% include 'sidebar_navigation.html' %}
+        <div class="main-content-window">
+            {% include 'navbar.html' %}
+
+            <div class="page-header">
+                <div>
+                    <div class="page-title">Unknown Events Review</div>
+                    <div class="page-subtitle">Ambiguous firewall events queued for admin review, grouped by user account.</div>
+                </div>
+            </div>
+
+            <div class="user-pills" id="userPills"></div>
+
+            <div class="panel-card">
+                <div class="panel-toolbar">
+                    <div>
+                        <strong id="selectedUserLabel">Select a user</strong>
+                        <div style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.2rem;" id="selectedUserMeta"></div>
+                    </div>
+                    <button class="btn-analyze-user" id="analyzeUserBtn" onclick="analyzeSelectedUser()" disabled>
+                        Analyze All User Events
+                    </button>
+                </div>
+                <div class="table-scroll">
+                    <table class="events-table">
+                        <thead>
+                            <tr>
+                                <th>Created</th>
+                                <th>Source IP</th>
+                                <th>Dst Port</th>
+                                <th>Protocol</th>
+                                <th>Status</th>
+                                <th style="text-align:center;">Analyze</th>
+                                <th style="text-align:center;">Blacklist</th>
+                            </tr>
+                        </thead>
+                        <tbody id="eventsTableBody">
+                            <tr><td colspan="7" style="text-align:center; color:var(--text-secondary); padding:2rem;">Loading users...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="analysisModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2 id="analysisModalTitle">Nova Unknown Event Analysis</h2>
+                <button class="modal-close-x" onclick="closeAnalysisModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="analysisModalBody"></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="blacklistModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2>Add IP to Blacklist</h2>
+                <button class="modal-close-x" onclick="closeBlacklistModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="blacklist-form">
+                    <div>
+                        <div style="color:var(--text-secondary); font-size:0.85rem; margin-bottom:0.35rem;">Source IP</div>
+                        <div class="blacklist-ip-display" id="blacklistIpDisplay">—</div>
+                    </div>
+
+                    <div class="blacklist-option selected" id="scopeUserOption" onclick="setBlacklistScope('user')">
+                        <label>
+                            <input type="radio" name="blacklistScope" value="user" checked onchange="setBlacklistScope('user')">
+                            <span>Blacklist for a specific user</span>
+                        </label>
+                        <div class="hint">Choose which account should block this IP.</div>
+                        <select class="blacklist-user-select" id="blacklistUserSelect" onclick="event.stopPropagation()"></select>
+                    </div>
+
+                    <div class="blacklist-option" id="scopeGlobalOption" onclick="setBlacklistScope('global')">
+                        <label>
+                            <input type="radio" name="blacklistScope" value="global" onchange="setBlacklistScope('global')">
+                            <span>Blacklist globally (all users)</span>
+                        </label>
+                        <div class="hint">Adds this IP to every non-admin user blacklist.</div>
+                    </div>
+
+                    <div>
+                        <div style="color:var(--text-secondary); font-size:0.85rem; margin-bottom:0.35rem;">Notes (optional)</div>
+                        <textarea class="blacklist-notes" id="blacklistNotes" placeholder="Reason or context for this blacklist entry"></textarea>
+                    </div>
+
+                    <div class="blacklist-actions">
+                        <button class="btn-secondary" type="button" onclick="closeBlacklistModal()">Cancel</button>
+                        <button class="btn-primary" type="button" id="confirmBlacklistBtn" onclick="confirmBlacklist()">Add to Blacklist</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        base_url = CONFIG.BASE_URL;
+        let usersSummary = [];
+        let selectedUserId = null;
+        let blacklistContext = null;
+
+        function toggleTheme() {
+            const body = document.body;
+            const btn = document.getElementById('themeText');
+            body.classList.toggle('dark-mode');
+            btn.textContent = body.classList.contains('dark-mode') ? 'LIGHT MODE' : 'DARK MODE';
+        }
+
+        async function loadUsersSummary() {
+            const response = await authFetch(`${base_url}/dashboard/api/unknown-events/users`);
+            const result = await response.json();
+            if (!response.ok || result.status !== "success") {
+                throw new Error(result.message || "Failed to load users.");
+            }
+            usersSummary = result.data;
+            renderUserPills();
+            const firstWithEvents = usersSummary.find(u => u.event_count > 0) || usersSummary[0];
+            if (firstWithEvents) selectUser(firstWithEvents.id);
+        }
+
+        function renderUserPills() {
+            const container = document.getElementById('userPills');
+            if (!usersSummary.length) {
+                container.innerHTML = '<span style="color:var(--text-secondary);">No users found.</span>';
+                return;
+            }
+            container.innerHTML = usersSummary.map(user => `
+                <button class="user-pill ${selectedUserId === user.id ? 'active' : ''}" onclick="selectUser(${user.id})">
+                    ${user.username} <span class="count">(${user.event_count})</span>
+                </button>
+            `).join('');
+        }
+
+        async function selectUser(userId) {
+            selectedUserId = userId;
+            renderUserPills();
+            document.getElementById('analyzeUserBtn').disabled = false;
+            const tableBody = document.getElementById('eventsTableBody');
+            tableBody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-secondary); padding:2rem;">Loading events...</td></tr>';
+
+            const response = await authFetch(`${base_url}/dashboard/api/unknown-events/user/${userId}`);
+            const result = await response.json();
+            if (!response.ok || result.status !== "success") {
+                tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--accent-danger);">${result.message}</td></tr>`;
+                return;
+            }
+
+            document.getElementById('selectedUserLabel').textContent = result.username;
+            document.getElementById('selectedUserMeta').textContent = `${result.events.length} unknown event(s) on record`;
+
+            if (!result.events.length) {
+                tableBody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-secondary); padding:2rem;">No unknown events for this user.</td></tr>';
+                document.getElementById('analyzeUserBtn').disabled = true;
+                return;
+            }
+
+            tableBody.innerHTML = result.events.map(event => `
+                <tr>
+                    <td>${event.created_at}</td>
+                    <td>
+                        <div class="ip-cell">
+                            <code>${event.src_ip}</code>
+                        </div>
+                    </td>
+                    <td>${event.dst_port ?? '—'}</td>
+                    <td>${event.protocol}</td>
+                    <td><span class="badge badge-pending">${event.status}</span></td>
+                    <td style="text-align:center;">
+                        <button class="btn-analyze" onclick="analyzeSingleEvent(${event.id})">Analyze</button>
+                    </td>
+                    <td style="text-align:center;">
+                        <button
+                            type="button"
+                            class="btn-blacklist-add"
+                            title="Add to blacklist"
+                            data-event-id="${event.id}"
+                            data-src-ip="${escapeHtmlAttr(event.src_ip)}"
+                            data-bf-score="${event.bf_score ?? 0}"
+                            data-dos-score="${event.dos_score ?? 0}"
+                            data-user-id="${event.user_id ?? selectedUserId}"
+                        >+</button>
+                    </td>
+                </tr>
+            `).join('');
+
+            tableBody.querySelectorAll('.btn-blacklist-add').forEach((button) => {
+                button.addEventListener('click', () => {
+                    openBlacklistModal(
+                        Number(button.dataset.eventId),
+                        button.dataset.srcIp,
+                        Number(button.dataset.bfScore),
+                        Number(button.dataset.dosScore),
+                        Number(button.dataset.userId)
+                    );
+                });
+            });
+        }
+
+        function escapeHtmlAttr(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/</g, '&lt;');
+        }
+
+        function openAnalysisModal(title, mode = 'batch') {
+            const modal = document.getElementById('analysisModal');
+            const card = modal.querySelector('.modal-card');
+            card.classList.toggle('analysis-modal--single', mode === 'single');
+            card.classList.toggle('analysis-modal--batch', mode === 'batch');
+            document.getElementById('analysisModalTitle').textContent = title;
+            document.getElementById('analysisModalBody').innerHTML = `
+                <div class="analysis-loader-container">
+                    <div class="analysis-spinner"></div>
+                    <p>Consulting local Ollama security model...</p>
+                </div>
+            `;
+            modal.classList.add('active');
+        }
+
+        function closeAnalysisModal() {
+            document.getElementById('analysisModal').classList.remove('active');
+        }
+
+        async function analyzeSingleEvent(eventId) {
+            openAnalysisModal('Nova Unknown Event Analysis', 'single');
+            try {
+                const response = await authFetch(`${base_url}/api/analyze-unknown-event/${eventId}`, { method: 'POST' });
+                const data = await response.json();
+                if (!response.ok || data.status !== 'success') throw new Error(data.message);
+                document.getElementById('analysisModalBody').innerHTML = `<div class="nova-content nova-content--single">${marked.parse(data.analysis)}</div>`;
+            } catch (err) {
+                document.getElementById('analysisModalBody').innerHTML = `<p style="color:var(--accent-danger);">Analysis failed: ${err.message}</p>`;
+            }
+        }
+
+        async function analyzeSelectedUser() {
+            if (!selectedUserId) return;
+            const user = usersSummary.find(u => u.id === selectedUserId);
+            openAnalysisModal(`Nova Unknown Events — ${user ? user.username : 'User'}`, 'batch');
+            try {
+                const response = await authFetch(`${base_url}/dashboard/api/unknown-events/analyze/${selectedUserId}`, { method: 'POST' });
+                const data = await response.json();
+                if (!response.ok || data.status !== 'success') throw new Error(data.message);
+                document.getElementById('analysisModalBody').innerHTML = `<div class="nova-content nova-content--batch">${marked.parse(data.analysis)}</div>`;
+            } catch (err) {
+                document.getElementById('analysisModalBody').innerHTML = `<p style="color:var(--accent-danger);">Analysis failed: ${err.message}</p>`;
+            }
+        }
+
+        function populateBlacklistUserSelect(defaultUserId) {
+            const select = document.getElementById('blacklistUserSelect');
+            select.innerHTML = usersSummary.map(user => `
+                <option value="${user.id}" ${user.id === defaultUserId ? 'selected' : ''}>${user.username}</option>
+            `).join('');
+        }
+
+        function setBlacklistScope(scope) {
+            document.getElementById('scopeUserOption').classList.toggle('selected', scope === 'user');
+            document.getElementById('scopeGlobalOption').classList.toggle('selected', scope === 'global');
+            const radio = document.querySelector(`input[name="blacklistScope"][value="${scope}"]`);
+            if (radio) radio.checked = true;
+            document.getElementById('blacklistUserSelect').disabled = scope === 'global';
+        }
+
+        function openBlacklistModal(eventId, srcIp, bfScore, dosScore, eventUserId) {
+            blacklistContext = {
+                eventId,
+                srcIp,
+                bfScore,
+                dosScore,
+                eventUserId,
+            };
+            document.getElementById('blacklistIpDisplay').textContent = srcIp || '—';
+            document.getElementById('blacklistNotes').value = `Blacklisted from unknown event #${eventId}`;
+            populateBlacklistUserSelect(eventUserId || selectedUserId);
+            setBlacklistScope('user');
+            document.getElementById('blacklistModal').classList.add('active');
+        }
+
+        function closeBlacklistModal() {
+            document.getElementById('blacklistModal').classList.remove('active');
+            blacklistContext = null;
+        }
+
+        async function confirmBlacklist() {
+            if (!blacklistContext) return;
+
+            const scope = document.querySelector('input[name="blacklistScope"]:checked')?.value || 'user';
+            const confirmBtn = document.getElementById('confirmBlacklistBtn');
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = 'Adding...';
+
+            const body = {
+                ip: blacklistContext.srcIp,
+                scope,
+                bf_score: blacklistContext.bfScore,
+                dos_score: blacklistContext.dosScore,
+                notes: document.getElementById('blacklistNotes').value.trim() || null,
+            };
+
+            if (scope === 'user') {
+                body.user_id = parseInt(document.getElementById('blacklistUserSelect').value, 10);
+            }
+
+            try {
+                const response = await authFetch(`${base_url}/dashboard/api/unknown-events/blacklist`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                const data = await response.json();
+                if (!response.ok || data.status !== 'success') {
+                    throw new Error(data.message || 'Failed to add IP to blacklist.');
+                }
+                closeBlacklistModal();
+                alert(data.message || 'IP added to blacklist.');
+            } catch (err) {
+                alert(`Blacklist failed: ${err.message}`);
+            } finally {
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = 'Add to Blacklist';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadUsersSummary().catch(err => {
+                document.getElementById('eventsTableBody').innerHTML =
+                    `<tr><td colspan="7" style="text-align:center; color:var(--accent-danger);">${err.message}</td></tr>`;
+            });
+        });
+    </script>
+</body>
+</html>

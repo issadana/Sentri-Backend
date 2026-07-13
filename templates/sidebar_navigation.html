@@ -1,0 +1,124 @@
+<style>
+    .app-sidebar {
+        width: 260px;
+        background-color: #0f172a; /* Sleek Tech Midnight Dark Panel */
+        color: #ffffff;
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid rgba(255, 255, 255, 0.05);
+        padding: 2rem 1.25rem;
+        flex-shrink: 0;
+    }
+
+    .sidebar-brand-title {
+        font-size: 1.15rem;
+        font-weight: 700;
+        margin-bottom: 2.5rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #38bdf8;
+    }
+
+    .sidebar-nav-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        list-style: none;
+    }
+
+    .nav-item-link {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0.8rem 1rem;
+        color: #94a3b8;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.9rem;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+    }
+
+    .nav-item-link:hover, .nav-item-link.active {
+        color: #ffffff;
+        background-color: rgba(56, 189, 248, 0.1);
+    }
+
+    .nav-item-link.active {
+        border-left: 3px solid #38bdf8;
+        background-color: rgba(56, 189, 248, 0.08);
+    }
+
+    .main-content-window {
+        flex: 1;
+        padding: 2rem;
+        background-color: var(--bg-canvas);
+        overflow-y: auto;
+        height: 100vh;
+    }
+</style>
+
+<div class="app-sidebar">
+    <div class="sidebar-brand-title">✦ NOVA INTELLIGENCE</div>
+    <ul class="sidebar-nav-list">
+        <li>
+            <a href="/dashboard" class="nav-item-link" id="nav-dashboard">
+                📊 System Dashboard
+            </a>
+        </li>
+        <li>
+            <a href="/users" class="nav-item-link" id="nav-users">
+                👥 User Access Profiles
+            </a>
+        </li>
+        <li>
+            <a href="/topology" class="nav-item-link" id="nav-topology">
+                🌐 Network Topology 3D
+            </a>
+        </li>
+        <li>
+            <a href="/unknown-events" class="nav-item-link" id="nav-unknown-events">
+                ❓ Unknown Events
+            </a>
+        </li>
+    </ul>
+</div>
+
+
+<script src="{{ url_for('static', filename='js/config.js') }}"></script>
+<script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+<script>
+
+    document.addEventListener("DOMContentLoaded", function() {
+        if (window.location.pathname !== "/login") {
+            if (!requireAdminPage()) {
+                return;
+            }
+            populateOperatorLabel();
+        }
+
+        const currentPath = window.location.pathname;
+        
+        document.getElementById('nav-dashboard').classList.remove('active');
+        document.getElementById('nav-users').classList.remove('active');
+        if (document.getElementById('nav-topology')) {
+            document.getElementById('nav-topology').classList.remove('active');
+        }
+        if (document.getElementById('nav-unknown-events')) {
+            document.getElementById('nav-unknown-events').classList.remove('active');
+        }
+        
+        if (currentPath.includes('/dashboard')) {
+            document.getElementById('nav-dashboard').classList.add('active');
+        } else if (currentPath.includes('/users') || currentPath.includes('/user-profile')) {
+            document.getElementById('nav-users').classList.add('active');
+        } else if (currentPath.includes('/topology')) {
+            document.getElementById('nav-topology').classList.add('active');
+        } else if (currentPath.includes('/unknown-events')) {
+            document.getElementById('nav-unknown-events').classList.add('active');
+        }
+
+    });
+    
+</script>

@@ -1,0 +1,124 @@
+
+<button class="chat-launcher-btn" onclick="toggleChatSidebar()">💬</button>
+
+
+<div class="chat-sidebar" id="copilotSidebar">
+    <div class="chat-sidebar-header">
+        <h2>🛡️ Nova Incident Assistant</h2>
+        <button class="modal-close-x" onclick="toggleChatSidebar()">&times;</button>
+    </div>
+    <div class="chat-msg-area" id="chatMsgDisplay">
+        <div class="msg-wrapper wrapper-bot">
+            <div class="chat-avatar avatar-bot">✦</div>
+            <div class="msg-bubble msg-bot">
+                Hello Operator! I have processed the live firewall logs data table. Ask me anything about current vectors or IP alerts.
+            </div>
+        </div>
+    </div>
+    <div class="chat-input-container">
+        <input type="text" class="chat-input-field" id="chatInput" placeholder="Ask about table data..." onkeydown="if(event.key === 'Enter') submitChatQuery()">
+        <button class="chat-send-btn" onclick="submitChatQuery()">Send</button>
+    </div>
+</div>
+
+
+
+<script>
+
+function toggleChatSidebar() {
+    document.getElementById('copilotSidebar').classList.toggle('active');
+}
+
+async function submitChatQuery() {
+    const inputField = document.getElementById('chatInput');
+    const msgArea = document.getElementById('chatMsgDisplay');
+    const query = inputField.value.trim();
+
+    if (!query) return;
+
+    appendMessageBubble(query, 'user');
+    inputField.value = '';
+    msgArea.scrollTop = msgArea.scrollHeight;
+
+    const botBubbleId = 'bot-msg-' + Date.now();
+    
+    const loaderHtml = `
+        <div class="msg-wrapper wrapper-bot" id="${botBubbleId}">
+            <div class="chat-avatar avatar-bot">✦</div>
+            <div class="msg-bubble msg-bot">
+                <span class="thinking-dots" style="font-style: italic; opacity: 0.7;">
+                    Thinking...
+                </span>
+            </div>
+        </div>
+    `;
+    msgArea.insertAdjacentHTML('beforeend', loaderHtml);
+    msgArea.scrollTop = msgArea.scrollHeight;
+
+    const encodedQuery = encodeURIComponent(query);
+    const session_id = 'static_guest_session'; 
+    const sseUrl = buildSseUrl('/api/chat-bot', { message: encodedQuery, session_id: session_id });
+    
+    let eventSource = new EventSource(sseUrl);
+    let fullResponse = "";
+    const botBubble = document.getElementById(botBubbleId).querySelector('.msg-bubble');
+
+    eventSource.addEventListener('message', function(event) {
+        try {
+            const data = JSON.parse(event.data);
+            if (data.token) {
+                if (fullResponse === "") {
+                    botBubble.innerHTML = "";
+                }
+                
+                fullResponse += data.token;
+                
+                botBubble.innerHTML = marked.parse(fullResponse);
+                msgArea.scrollTop = msgArea.scrollHeight;
+            }
+        } catch (err) {
+            console.error("Error parsing SSE chunk telemetry:", err);
+        }
+    });
+
+    
+    eventSource.addEventListener('end', function(event) {
+        eventSource.close(); 
+    });
+
+
+    eventSource.onerror = function(err) {
+        console.error("SSE connection exception occurred:", err);
+        if (fullResponse === "") {
+            botBubble.innerHTML = `<span style="color:var(--accent-danger);">Handshake Error: Failed to process stream context.</span>`;
+        }
+        eventSource.close();
+    };
+}
+
+function appendMessageBubble(content, type, isHtml = false) {
+    const msgArea = document.getElementById('chatMsgDisplay');
+    
+    const wrapper = document.createElement('div');
+    wrapper.className = `msg-wrapper wrapper-${type}`;
+
+    const avatar = document.createElement('div');
+    avatar.className = `chat-avatar avatar-${type}`;
+    avatar.textContent = type === 'user' ? '👤' : '✦';
+
+    const bubble = document.createElement('div');
+    bubble.className = `msg-bubble msg-${type}`;
+    
+    if (isHtml) {
+        bubble.innerHTML = content;
+    } else {
+        bubble.textContent = content;
+    }
+
+    wrapper.appendChild(avatar);
+    wrapper.appendChild(bubble);
+    msgArea.appendChild(wrapper);
+}
+
+</script>
+
